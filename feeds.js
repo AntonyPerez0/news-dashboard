@@ -62,6 +62,18 @@ export const CATEGORIES = {
       { url: 'https://www.skysports.com/rss/12040', name: 'Sky Sports' }
     ]
   },
+  esports: {
+    label: 'CS Esports',
+    feeds: [
+      { url: 'https://www.hltv.org/rss/news', name: 'HLTV' },
+      // Google News search RSS: fresh Counter-Strike stories from all outlets
+      {
+        url: 'https://news.google.com/rss/search?q=counter-strike+when:7d&hl=en-US&gl=US&ceid=US:en',
+        name: 'Google News',
+        aggregate: true
+      }
+    ]
+  },
   science: {
     label: 'Science',
     feeds: [

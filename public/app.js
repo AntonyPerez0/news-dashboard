@@ -11,6 +11,7 @@ const DEFAULT_CATEGORIES = [
   { key: 'business', label: 'Business' },
   { key: 'technology', label: 'Technology' },
   { key: 'sports', label: 'Sports' },
+  { key: 'esports', label: 'CS Esports' },
   { key: 'science', label: 'Science' },
   { key: 'health', label: 'Health' },
   { key: 'entertainment', label: 'Entertainment' }
@@ -402,7 +403,7 @@ function onKeyDown(e) {
   else if (k === ' ' || e.code === 'Space') {
     e.preventDefault();
     setAllPaused(!state.allPaused);
-  } else if (/^[1-8]$/.test(k)) {
+  } else if (/^[1-9]$/.test(k)) {
     const cat = state.categories[Number(k) - 1];
     if (cat) selectCategory(cat.key);
   }

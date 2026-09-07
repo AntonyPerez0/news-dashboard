@@ -69,13 +69,10 @@ header {
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 2px;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 2px 0;
 }
-
-.cats::-webkit-scrollbar { display: none; }
 
 .cat-btn {
   flex: none;

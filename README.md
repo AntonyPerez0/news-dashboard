@@ -8,9 +8,10 @@ so you can glance over the news without ever touching a scrollbar.
 
 ## Features
 
-- **8 categories** — Headlines, World, Business, Technology, Sports, Science,
-  Health, Entertainment — aggregated from BBC, NPR, Al Jazeera, The Verge, Ars
-  Technica, TechCrunch, ESPN, Sky Sports, Phys.org, ScienceDaily, STAT, Variety,
+- **9 categories** — Headlines, World, Business, Technology, Sports,
+  CS Esports, Science, Health, Entertainment — aggregated from BBC, NPR,
+  Al Jazeera, The Verge, Ars Technica, TechCrunch, ESPN, Sky Sports, HLTV,
+  Phys.org, ScienceDaily, STAT, Variety,
   The Hollywood Reporter, CNBC and Google News.
 - **Rich tiles** — each card shows the article's photo (with a styled source
   monogram when a feed doesn't provide one), the headline and a short excerpt.
@@ -20,7 +21,7 @@ so you can glance over the news without ever touching a scrollbar.
 - **No API keys** — everything comes from public RSS feeds, fetched server-side
   (no CORS issues) and cached for 10 minutes per category.
 - **Keyboard shortcuts** — `F` toggles fullscreen, `Space` pauses/resumes all
-  cycling, `1`–`8` switch categories.
+  cycling, `1`–`9` switch categories.
 - **Self-healing** — a dead feed never breaks a category; the grid layout adapts
   to any screen size or aspect ratio; the UI polls for fresh news every 5
   minutes and shows connection status.
