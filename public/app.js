@@ -96,7 +96,7 @@ function renderCategories() {
 
 async function loadCategories() {
   try {
-    const res = await fetch('/api/categories');
+    const res = await fetch('api/categories');
     if (!res.ok) return;
     const data = await res.json();
     if (Array.isArray(data) && data.length) {
@@ -104,8 +104,24 @@ async function loadCategories() {
       renderCategories();
     }
   } catch {
-    /* keep defaults */
+    /* keep defaults (GitHub Pages mode) */
   }
+}
+
+/**
+ * Live Node API first (npm start); when that's absent — e.g. on GitHub
+ * Pages — fall back to the static JSON snapshots the deploy action builds.
+ */
+async function loadNews(cat) {
+  try {
+    const res = await fetch(`api/news?category=${encodeURIComponent(cat)}`);
+    if (res.ok) return await res.json();
+  } catch {
+    /* no API available */
+  }
+  const res = await fetch(`data/${encodeURIComponent(cat)}.json`, { cache: 'no-cache' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 async function selectCategory(key) {
@@ -264,9 +280,7 @@ function setAllPaused(paused) {
 async function refresh() {
   const cat = state.category;
   try {
-    const res = await fetch(`/api/news?category=${encodeURIComponent(cat)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await loadNews(cat);
     if (cat !== state.category) return; // user switched meanwhile
 
     state.items = Array.isArray(data.items) ? data.items : [];

@@ -18,7 +18,7 @@ export const CATEGORIES = {
   headlines: {
     label: 'Headlines',
     feeds: [
-      googleTopic('HOME'),
+      { url: `${GOOGLE_NEWS}?hl=en-US&gl=US&ceid=US:en`, name: 'Google News', aggregate: true },
       { url: 'http://feeds.bbci.co.uk/news/rss.xml', name: 'BBC News' },
       { url: 'https://feeds.npr.org/1001/rss.xml', name: 'NPR' },
       { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera' }
@@ -38,7 +38,8 @@ export const CATEGORIES = {
     feeds: [
       googleTopic('BUSINESS'),
       { url: 'http://feeds.bbci.co.uk/news/business/rss.xml', name: 'BBC News' },
-      { url: 'https://search.cnbc.com/rs/search/combinedcategorisedfeeds.xml?partnerId=wrss01&id=100003114', name: 'CNBC' },
+      { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', name: 'MarketWatch' },
+      { url: 'https://finance.yahoo.com/news/rssindex', name: 'Yahoo Finance' },
       { url: 'https://feeds.npr.org/1006/rss.xml', name: 'NPR' }
     ]
   },

@@ -25,13 +25,20 @@ so you can glance over the news without ever touching a scrollbar.
 
 ## Run it
 
+**Option A — GitHub Pages (zero install):** the repo deploys itself to
+**https://antonyperez0.github.io/news-dashboard/** — a GitHub Action refetches
+all feeds every 15 minutes and publishes static news snapshots. Open it on your
+second monitor, press `F` for fullscreen, and let it run.
+
+**Option B — run locally (freshest data, 10-min server cache):**
+
 ```bash
 npm install
 npm start          # → http://localhost:3000
 ```
 
-Open it on your second monitor, press `F` for fullscreen, pick your categories,
-and let it run. Your chosen category is remembered in `localStorage`.
+Both modes share the same UI: when the local Node API isn't reachable (Pages),
+the frontend silently falls back to the static JSON snapshots in `data/`.
 
 Use a custom port:
 
@@ -42,15 +49,19 @@ PORT=8080 npm start
 ## How it works
 
 ```
-browser ──polls──▶ /api/news?category=… ──▶ in-memory cache (10 min TTL)
-                                              │ cache miss / expired
-                                              ▼
-                                   parallel RSS fetches (Promise.allSettled)
-                                   → dedupe → sort by recency → cap 150 items
+GitHub Action (every 15 min)                local: npm start
+       │ runs scripts/generate-data.js             │ /api/news (10-min cache)
+       ▼                                           ▼
+dist/data/<category>.json  ──── both served to ────┐
+                                                   ▼
+                       browser polls every 5 min (API first, static fallback)
 ```
 
 - `server.js` — Express server, RSS aggregation, stale-while-revalidate cache
+- `lib/news.js` — shared feed fetching/normalizing used by server + static build
 - `feeds.js` — the category → feed registry (edit this to add/remove sources)
+- `scripts/generate-data.js` — builds `dist/` (public + news snapshots) for Pages
+- `.github/workflows/deploy.yml` — refreshes data & deploys to Pages every 15 min
 - `public/` — the dashboard UI (vanilla HTML/CSS/JS, no build step)
 
 ## Adding your own feeds
@@ -68,4 +79,5 @@ technology: {
 }
 ```
 
-No rebuild needed — restart the server and you're done.
+No rebuild needed — commit and push, and the deploy action picks it up within
+15 minutes.
