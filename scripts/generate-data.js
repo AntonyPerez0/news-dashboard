@@ -19,7 +19,7 @@ let ok = 0;
 
 for (const key of Object.keys(CATEGORIES)) {
   try {
-    const items = await fetchCategory(key);
+    const items = await fetchCategory(key, { budgetMs: 60_000, concurrency: 10 });
     await fs.writeFile(
       path.join(dist, 'data', `${key}.json`),
       JSON.stringify({ category: key, fetchedAt: Date.now(), items })

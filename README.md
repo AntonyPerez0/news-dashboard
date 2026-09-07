@@ -59,6 +59,12 @@ dist/data/<category>.json  ──── both served to ────┐
                        browser polls every 5 min (API first, static fallback)
 ```
 
+Photo pipeline: most RSS feeds ship no image, so each story falls back to
+scraping its page's `og:image` — Google News gateway links are resolved back
+to the real publisher URL first (via `google-news-url-decoder`). Coverage lands
+around 85–91%; publishers that block scrapers (WSJ, Reuters…) show a styled
+source monogram instead.
+
 - `server.js` — Express server, RSS aggregation, stale-while-revalidate cache
 - `lib/news.js` — shared feed fetching/normalizing used by server + static build
 - `feeds.js` — the category → feed registry (edit this to add/remove sources)
