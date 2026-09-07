@@ -1,0 +1,18 @@
+{
+  "name": "news-dashboard",
+  "version": "1.0.0",
+  "description": "Ambient fullscreen news dashboard for a second monitor. Tiles of live headlines that continuously cycle through selected categories.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "rss-parser": "^3.13.0"
+  }
+}
