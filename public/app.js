@@ -45,12 +45,12 @@ const state = {
 function timeAgo(ts) {
   if (!ts) return '';
   const s = Math.max(0, (Date.now() - ts) / 1000);
-  if (s < 60) return 'just now';
+  if (s < 60) return 'now';
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
 }
 
 function setUpdated(status, ts) {
@@ -149,6 +149,24 @@ function createTile(index) {
   tile.className = 'tile loading';
   tile.style.setProperty('--accent', PALETTE[index % PALETTE.length]);
 
+  const inner = document.createElement('div');
+  inner.className = 'tile-inner';
+
+  const media = document.createElement('div');
+  media.className = 'tile-media';
+  const img = document.createElement('img');
+  img.className = 'tile-img';
+  img.alt = '';
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  img.referrerPolicy = 'no-referrer';
+  const mono = document.createElement('span');
+  mono.className = 'tile-mono';
+  media.append(img, mono);
+
+  const body = document.createElement('div');
+  body.className = 'tile-body';
+
   const meta = document.createElement('div');
   meta.className = 'tile-meta';
   const source = document.createElement('div');
@@ -163,10 +181,17 @@ function createTile(index) {
   headline.textContent = 'Loading live headlines…';
   headlineWrap.appendChild(headline);
 
-  tile.append(meta, headlineWrap);
+  const snippetWrap = document.createElement('div');
+  snippetWrap.className = 'tile-snippet';
+  const snippet = document.createElement('span');
+  snippetWrap.appendChild(snippet);
+
+  body.append(meta, headlineWrap, snippetWrap);
+  inner.append(media, body);
+  tile.append(inner);
 
   const t = {
-    el: tile, source, time, headline,
+    el: tile, inner, img, mono, source, time, headline, snippet,
     list: [], pointer: 0, timer: null, paused: false, link: '', current: null
   };
 
@@ -208,10 +233,47 @@ function resetTiles() {
     t.current = null;
     t.link = '';
     t.el.classList.add('loading');
+    t.el.classList.remove('no-img', 'no-snippet');
+    t.img.classList.remove('loaded');
+    t.img.removeAttribute('src');
+    t.mono.textContent = '';
     t.source.textContent = '';
     t.time.textContent = '';
     t.headline.textContent = 'Loading live headlines…';
-    t.headline.classList.remove('swap');
+    t.snippet.textContent = '';
+    t.inner.classList.remove('swap');
+  }
+}
+
+function applyContent(t, item) {
+  t.current = item;
+  t.link = item.link;
+  t.el.classList.remove('loading');
+
+  t.source.textContent = item.source;
+  t.time.textContent = timeAgo(item.publishedAt);
+  t.headline.textContent = item.title;
+
+  if (item.image) {
+    t.img.classList.remove('loaded');
+    t.img.onload = () => t.img.classList.add('loaded');
+    t.img.onerror = () => t.el.classList.add('no-img');
+    t.img.src = item.image;
+    t.el.classList.remove('no-img');
+    t.mono.textContent = '';
+  } else {
+    t.img.removeAttribute('src');
+    t.img.classList.remove('loaded');
+    t.el.classList.add('no-img');
+    t.mono.textContent = (item.source || '?').trim()[0]?.toUpperCase() || '?';
+  }
+
+  if (item.snippet) {
+    t.snippet.textContent = item.snippet;
+    t.el.classList.remove('no-snippet');
+  } else {
+    t.snippet.textContent = '';
+    t.el.classList.add('no-snippet');
   }
 }
 
@@ -222,14 +284,8 @@ function assignLists() {
     t.list = state.items.filter((_, idx) => idx % n === i);
     t.pointer = 0;
     if (t.list.length) {
-      const item = t.list[0];
+      applyContent(t, t.list[0]);
       t.pointer = 1;
-      t.current = item;
-      t.link = item.link;
-      t.el.classList.remove('loading');
-      t.source.textContent = item.source;
-      t.time.textContent = timeAgo(item.publishedAt);
-      t.headline.textContent = item.title;
     }
   });
 }
@@ -249,20 +305,38 @@ function startCycling() {
   state.tiles.forEach((t, i) => schedule(t, i * (CYCLE_MS / state.tiles.length)));
 }
 
+function once(fn) {
+  let called = false;
+  return (...args) => {
+    if (called) return;
+    called = true;
+    fn(...args);
+  };
+}
+
 function advance(t) {
   if (!t.list.length) return;
   const item = t.list[t.pointer % t.list.length];
   t.pointer++;
-  t.current = item;
-  t.link = item.link;
 
-  t.source.textContent = item.source;
-  t.time.textContent = timeAgo(item.publishedAt);
-  t.headline.classList.add('swap');
-  setTimeout(() => {
-    t.headline.textContent = item.title;
-    t.headline.classList.remove('swap');
-  }, 290);
+  const swap = once(() => {
+    t.inner.classList.add('swap');
+    setTimeout(() => {
+      applyContent(t, item);
+      t.inner.classList.remove('swap');
+    }, 260);
+  });
+
+  // Preload the next photo so the crossfade never shows a half-loaded image.
+  if (item.image) {
+    const pre = new Image();
+    pre.onload = swap;
+    pre.onerror = swap;
+    pre.src = item.image;
+    setTimeout(swap, 1800);
+  } else {
+    swap();
+  }
 }
 
 function setAllPaused(paused) {
