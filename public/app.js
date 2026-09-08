@@ -1,6 +1,6 @@
 /* News Dashboard — ambient tile grid for a second monitor. */
 
-const CYCLE_MS = 12000;        // each tile swaps headlines every 12s
+const CYCLE_MS = 18000;        // each tile swaps headlines every 18s
 const REFRESH_MS = 5 * 60 * 1000; // poll the server every 5 minutes
 const STALE_MS = 15 * 60 * 1000;
 const PALETTE = ['#4f8cff', '#3fc1a9', '#b07cf5', '#ff9a62', '#5cc8ff', '#f2c94c', '#f472b6', '#7ee787'];
@@ -21,12 +21,32 @@ const els = {
   grid: document.getElementById('grid'),
   cats: document.getElementById('cats'),
   clock: document.getElementById('clock'),
+  date: document.getElementById('date'),
   updated: document.getElementById('updated'),
   updatedLabel: null,
   pauseChip: document.getElementById('pause-chip'),
   toast: document.getElementById('toast'),
   fsBtn: document.getElementById('fs-btn')
 };
+
+/* ------------------------------------------------------ cycle progress bar */
+
+function armProgress(t, delay) {
+  const bar = t.progress;
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
+  requestAnimationFrame(() => {
+    bar.style.transition = `width ${delay}ms linear`;
+    bar.style.width = '100%';
+  });
+}
+
+function freezeProgress(t) {
+  const bar = t.progress;
+  const width = getComputedStyle(bar).width;
+  bar.style.transition = 'none';
+  bar.style.width = width;
+}
 
 const state = {
   category: localStorage.getItem('nd.category') || 'headlines',
@@ -191,12 +211,20 @@ function createTile(index) {
   inner.append(media, body);
   tile.append(inner);
 
+  const progress = document.createElement('div');
+  progress.className = 'tile-progress';
+  tile.append(progress);
+
   const t = {
-    el: tile, inner, img, mono, source, time, headline, snippet,
+    el: tile, inner, img, mono, source, time, headline, snippet, progress,
     list: [], pointer: 0, timer: null, paused: false, link: '', current: null
   };
 
-  tile.addEventListener('mouseenter', () => { t.paused = true; clearTimeout(t.timer); });
+  tile.addEventListener('mouseenter', () => {
+    t.paused = true;
+    freezeProgress(t);
+    clearTimeout(t.timer);
+  });
   tile.addEventListener('mouseleave', () => {
     t.paused = false;
     if (!state.allPaused) schedule(t, 1200);
@@ -300,6 +328,7 @@ function assignLists() {
 function schedule(t, delay) {
   clearTimeout(t.timer);
   if (state.allPaused || t.paused || !t.list.length) return;
+  armProgress(t, delay);
   t.timer = setTimeout(() => {
     t.timer = null;
     try {
@@ -351,7 +380,7 @@ function advance(t) {
     setTimeout(() => {
       applyContent(t, item);
       t.inner.classList.remove('swap');
-    }, 260);
+    }, 340);
   });
 
   // Preload the next photo so the crossfade never shows a half-loaded image.
@@ -370,7 +399,11 @@ function setAllPaused(paused) {
   state.allPaused = paused;
   els.pauseChip.classList.toggle('hidden', !paused);
   if (paused) {
-    state.tiles.forEach((t) => clearTimeout(t.timer));
+    state.tiles.forEach((t) => {
+      freezeProgress(t);
+      clearTimeout(t.timer);
+      t.timer = null;
+    });
   } else {
     state.tiles.forEach((t, i) => schedule(t, (i % 5) * 150));
   }
@@ -415,7 +448,9 @@ function refreshVisibleTimes() {
 /* ------------------------------------------------------------------- misc */
 
 function tickClock() {
-  els.clock.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const now = new Date();
+  els.clock.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  els.date.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 function toggleFullscreen() {

@@ -142,6 +142,12 @@ header {
   box-shadow: 0 0 6px rgba(239, 83, 80, 0.7);
 }
 
+#date {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
 #clock {
   font-size: 16px;
   font-weight: 700;
@@ -215,12 +221,25 @@ header {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  transition: opacity 0.26s ease, transform 0.26s ease;
+  transition: opacity 0.34s ease, transform 0.34s ease;
 }
 
 .tile-inner.swap {
   opacity: 0;
   transform: translateY(-9px);
+}
+
+/* thin line showing time until the next headline swap */
+.tile-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0.5;
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* -------------------------------------------------------------- media band */
