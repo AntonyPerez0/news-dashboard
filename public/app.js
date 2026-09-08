@@ -243,6 +243,8 @@ function resetTiles() {
     t.headline.textContent = 'Loading live headlines…';
     t.snippet.textContent = '';
     t.inner.classList.remove('swap');
+    // A real hover survives the rebuild; anything else was a stuck pause.
+    t.paused = t.el.matches(':hover');
   }
 }
 
@@ -278,15 +280,17 @@ function applyContent(t, item) {
   }
 }
 
-/** Tile i owns every tileCount-th item, so all tiles show distinct headlines. */
+/** Tile i owns every tileCount-th item, so all tiles show distinct headlines.
+ *  Pointers survive refreshes so newly-arrived stories flow in without every
+ *  tile snapping back to the top of its list. */
 function assignLists() {
   const n = state.tiles.length;
   state.tiles.forEach((t, i) => {
     t.list = state.items.filter((_, idx) => idx % n === i);
-    t.pointer = 0;
     if (t.list.length) {
-      applyContent(t, t.list[0]);
-      t.pointer = 1;
+      if (t.pointer >= t.list.length || t.pointer < 0) t.pointer = 0;
+      applyContent(t, t.list[t.pointer % t.list.length]);
+      t.pointer++;
     }
   });
 }
@@ -297,14 +301,36 @@ function schedule(t, delay) {
   clearTimeout(t.timer);
   if (state.allPaused || t.paused || !t.list.length) return;
   t.timer = setTimeout(() => {
-    advance(t);
+    t.timer = null;
+    try {
+      advance(t);
+    } catch (err) {
+      console.warn('tile advance failed', err);
+    }
     schedule(t, CYCLE_MS);
   }, delay);
 }
 
+/** Restart the staggered cycle for every tile. Safe to call repeatedly —
+ *  each tile holds a single timer slot that schedule() clears first. */
 function startCycling() {
   state.tiles.forEach((t, i) => schedule(t, i * (CYCLE_MS / state.tiles.length)));
 }
+
+/** Safety net: any tile whose chain died (exception, lost mouseleave,
+ *  tab throttling edge cases) gets re-armed here. */
+setInterval(() => {
+  if (state.allPaused || document.hidden) return;
+  for (const t of state.tiles) {
+    // Heal "stuck hover": mouseenter fired but cursor left without an event.
+    if (t.paused && !t.el.matches(':hover')) {
+      t.paused = false;
+    }
+    if (!t.timer && !t.paused && t.list.length) {
+      schedule(t, Math.random() * 1500);
+    }
+  }
+}, 20_000);
 
 function once(fn) {
   let called = false;
@@ -367,6 +393,7 @@ async function refresh() {
     if (state.items.length) {
       if (!state.tiles.length) buildGrid();
       assignLists();
+      startCycling(); // re-arm every tile after new data lands
     } else if (!state.tiles.length) {
       buildGrid();
       toast('No news available for this category yet — retrying automatically.', true);
