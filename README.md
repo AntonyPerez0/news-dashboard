@@ -2,104 +2,133 @@
 
 [![CI](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/ci.yml)
 [![Deploy](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/deploy.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![Tested](https://img.shields.io/badge/tests-26%20passing-3FB950)](#testing)
 
-An ambient, fullscreen news dashboard built for a second monitor — now in
-**React + TypeScript (Vite)**. Live headlines arrive as a grid of rich tiles
-that continuously fade out and cycle to the next story, so you can glance over
-the news without ever touching a scrollbar.
+A live news dashboard built for a second monitor. Ten categories of headlines
+cycle continuously through a grid of rich tiles — photos, excerpts, source
+logos — so the news stays glanceable without ever touching a scrollbar.
 
-![News Dashboard](docs/screenshot.jpg)
+**Live:** [antonyperez0.github.io/news-dashboard](https://antonyperez0.github.io/news-dashboard/)
 
-## Features
+![News Dashboard — live headline grid](docs/screenshot.jpg)
 
-- **10 categories** — Headlines, World, Business, Technology, Sports,
-  CS Esports, Gaming, Science, Health, Entertainment — aggregated from BBC,
-  NPR, Al Jazeera, The Verge, Ars Technica, TechCrunch, ESPN, Sky Sports,
-  HLTV, Polygon, IGN, GameSpot, Eurogamer, Phys.org, ScienceDaily, STAT,
-  Variety, MarketWatch, Yahoo Finance and Google News.
-- **Rich tiles** — each card shows the article's photo (with a styled source
-  monogram when a feed doesn't provide one), the headline and a short excerpt.
-  Hover a tile to pause it and click to open the story.
-- **Continuous tile cycling** — every tile swaps to the next headline every
-  18 seconds on a staggered timer, with a thin progress bar on each card
-  counting down to its next swap, so the whole board feels alive.
-- **No API keys** — everything comes from public RSS feeds, fetched
-  server-side (no CORS issues), deduped, and cached.
-- **Keyboard shortcuts** — `F` toggles fullscreen, `Space` pauses/resumes all
-  cycling, `1`–`9` and `0` switch categories.
-- **Self-healing** — a dead feed never breaks a category; the grid adapts to
-  any screen size or aspect ratio; connection status is shown in the header.
+## Why this project exists
+
+The interesting engineering problem here isn't displaying news — it's keeping
+a browser tab healthy and populated for weeks of unattended runtime, fed by
+inconsistent third-party data, with zero API keys and zero server costs.
+
+## Highlights
+
+- **React 18 + strict TypeScript** — the whole frontend is typed end-to-end,
+  including the data layer that transparently switches between a live Express
+  API and pre-built static snapshots
+- **Heartbeat tile engine** — every tile's swap is a timestamp comparison on a
+  single 250 ms heartbeat, so swaps, hover-pauses, countdown bars and
+  stuck-state healing are pure functions of time; a throttled background tab
+  can never permanently stall one
+- **Photo & excerpt pipeline** — most RSS feeds ship no image or summary, so
+  each story falls back to scraping the article's `og:image` /
+  `og:description` / JSON-LD metadata — after resolving Google News gateway
+  links back to real publisher URLs. Coverage: ~90 % photos, ~90 % excerpts;
+  scraper-blocking publishers (WSJ, Reuters) degrade to styled monograms
+- **Self-healing data layer** — `Promise.allSettled` per feed means one dead
+  outlet never takes down a category; stale-while-revalidate caching with
+  negative-result backoff keeps upstream feeds unharmed during outages
+- **10 categories, 20+ feeds** — Headlines, World, Business, Technology,
+  Sports, CS Esports, Gaming, Science, Health, Entertainment, aggregated from
+  BBC, NPR, Al Jazeera, The Verge, Ars Technica, ESPN, HLTV, Polygon, IGN,
+  GameSpot, Eurogamer and more
+- **Quality gates** — 26 Vitest unit tests over the data pipeline, strict
+  `tsc` typecheck, both wired into CI on every push
+
+## Testing
+
+The test suite targets the parts where real data bites: Google News title
+suffix stripping (doubled suffixes, hyphenated outlets like `WSB-TV`),
+XML sanitizing of unescaped `&`, betting-spam filtering, meta-tag extraction
+with fallback chains, grid layout math across aspect ratios, and deduping.
+
+```bash
+npm test        # 26 tests, no network required
+```
+
+CI runs typecheck + tests + production build on every push; the deploy
+workflow rebuilds and republishes the site with fresh data every 15 minutes.
+
+## Architecture
+
+```
+GitHub Action (every 15 min)                local: npm start
+       │ scripts/generate-data.js                  │ /api/news (10-min SWR cache)
+       ▼                                           ▼
+dist/data/<category>.json  ─── both served to ───┐
+                                                 ▼
+                      browser polls every 5 min (live API first,
+                      transparent static-snapshot fallback)
+```
+
+```
+src/                          server/
+  components/                   server.js      Express, SWR cache, API
+    Tile.tsx        tile engine   news.js      RSS fetch, dedupe, meta scrape
+    TileGrid.tsx    grid + heartbeat          feeds.js    feed registry
+    Header.tsx      nav, clock, status      scripts/
+    SettingsDrawer  speed, density            generate-data.js  static build
+  hooks/        useNews, useClock, useWindowSize
+  api.ts        live-API-first data layer
+  types.ts      shared contracts
+```
+
+**Design decisions worth calling out:**
+
+- **Timestamp-driven UI** — the vanilla predecessor used per-tile
+  `setTimeout` chains, which froze whenever a timer died. The React rewrite
+  stores each tile's `nextSwapAt` and compares it against a heartbeat, making
+  every visual state recoverable and testable
+- **API-first, static-fallback** — the same frontend runs from `npm start`
+  (freshest data) and GitHub Pages (pre-built snapshots), chosen at request
+  time by whether the API responds
+- **Enrichment in the background** — headlines respond in seconds; photo
+  scraping continues server-side and the client picks up enriched data on a
+  quick follow-up poll, so cold starts never block
 
 ## Run it
 
-**Option A — GitHub Pages (zero install):** the repo deploys itself to
-**https://antonyperez0.github.io/news-dashboard/** — a GitHub Action rebuilds
-the app and refetches all feeds every 15 minutes. Open it on your second
-monitor, press `F` for fullscreen, and let it run.
-
-**Option B — run locally (freshest data, 10-min server cache):**
-
 ```bash
 npm install
-npm run build        # typecheck + vite build → dist/
-npm start            # → http://localhost:3000 (serves dist/ + live API)
+npm run build     # strict typecheck + vite build
+npm start         # → http://localhost:3000 (API + built app)
 ```
 
-**Developing:**
+Developing:
 
 ```bash
-npm run dev          # vite dev server (proxies /api and /data to :3000)
-npm run dev:server   # express API with hot reload
-npm run build:data   # regenerate static news snapshots into dist/data
+npm run dev           # vite dev server (proxies API to :3000)
+npm run dev:server    # Express with hot reload
+npm run test:watch    # vitest watch mode
 ```
 
-Both modes share the same UI: when the local Node API isn't reachable (Pages),
-the frontend silently falls back to the static JSON snapshots in `dist/data/`.
+Keyboard: `F` fullscreen · `Space` pause/resume · `1`–`9`, `0` categories ·
+`Enter` open focused story
 
-## How it works
+## Adding feeds
 
-```
-GitHub Action (every 15 min)                 local: npm start
-       │ scripts/generate-data.js                   │ /api/news (10-min cache)
-       ▼                                            ▼
-dist/data/<category>.json  ──── both served to ────┐
-                                                   ▼
-                       browser polls every 5 min (API first, static fallback)
-```
-
-**Photo & excerpt pipeline:** most RSS feeds ship no image and no summary, so
-each story falls back to scraping its article page's `og:image` and
-`og:description` — Google News gateway links are resolved back to the real
-publisher URL first (via `google-news-url-decoder`). Coverage lands around
-85–91%; publishers that block scrapers (WSJ, Reuters…) show a styled source
-monogram instead.
-
-**React architecture:** tiles are driven by a single 250ms heartbeat that
-checks each tile's `nextSwapAt` timestamp — content swaps, hover-pauses,
-countdown bars and stuck-state healing are all pure functions of time, so a
-throttled timer can never permanently freeze a tile (the bug that killed the
-vanilla version).
-
-- `server/server.js` — Express server, stale-while-revalidate cache, API
-- `server/news.js` — RSS fetching/normalizing, og:image enrichment
-- `server/feeds.js` — the category → feed registry (edit to add sources)
-- `scripts/generate-data.js` — writes static news snapshots for Pages
-- `.github/workflows/deploy.yml` — build + deploy to Pages every 15 min
-- `src/` — the React dashboard (components, hooks, TypeScript types)
-
-## Adding your own feeds
-
-Add an entry to `server/feeds.js`:
+Registry lives in [`server/feeds.js`](server/feeds.js):
 
 ```js
-technology: {
-  label: 'Technology',
+gaming: {
+  label: 'Gaming',
   feeds: [
-    { url: 'https://example.com/rss.xml', name: 'Example' },
+    { url: 'https://www.polygon.com/rss/index.xml', name: 'Polygon' },
     // aggregate: true strips the " - Outlet" suffix Google News appends
     { url: 'https://news.google.com/rss/…', name: 'Google News', aggregate: true }
   ]
 }
 ```
 
-Commit and push — the deploy action picks it up within 15 minutes.
+## License
+
+MIT
