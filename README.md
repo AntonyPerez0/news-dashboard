@@ -16,8 +16,9 @@ so you can glance over the news without ever touching a scrollbar.
 - **Rich tiles** — each card shows the article's photo (with a styled source
   monogram when a feed doesn't provide one), the headline and a short excerpt.
   Hover a tile to pause it and click to open the story.
-- **Continuous tile cycling** — every tile swaps to the next headline on a
-  staggered timer, so the whole board feels alive.
+- **Continuous tile cycling** — every tile swaps to the next headline every
+  18 seconds on a staggered timer, with a thin progress bar on each card
+  counting down to its next swap, so the whole board feels alive.
 - **No API keys** — everything comes from public RSS feeds, fetched server-side
   (no CORS issues) and cached for 10 minutes per category.
 - **Keyboard shortcuts** — `F` toggles fullscreen, `Space` pauses/resumes all
