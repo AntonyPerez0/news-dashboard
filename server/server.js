@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CATEGORIES, fetchCategory } from './lib/news.js';
+import { CATEGORIES, fetchCategoryFeeds, enrichImages } from './news.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -16,15 +16,23 @@ const cache = new Map();
 function getCacheEntry(key) {
   let entry = cache.get(key);
   if (!entry) {
-    entry = { items: [], fetchedAt: 0, refreshing: null };
+    entry = { items: [], fetchedAt: 0, refreshing: null, enriching: null };
     cache.set(key, entry);
   }
   const expired = Date.now() - entry.fetchedAt > CACHE_TTL_MS;
   if (!entry.refreshing && (expired || entry.items.length === 0)) {
-    entry.refreshing = fetchCategory(key)
+    // Feeds are fast (a few seconds) and respond with headlines immediately.
+    // Photo enrichment (og:image scraping) keeps running in the background
+    // and mutates the cached items in place — the next poll picks it up.
+    entry.enriching = null;
+    entry.refreshing = fetchCategoryFeeds(key)
       .then((items) => {
         entry.items = items;
         entry.fetchedAt = Date.now();
+        entry.enriching = enrichImages(items, { budgetMs: 30_000, concurrency: 10 })
+          .finally(() => {
+            entry.enriching = null;
+          });
       })
       .catch((err) => {
         // Back off briefly so a total outage doesn't hammer upstream feeds.
@@ -44,7 +52,8 @@ function getCacheEntry(key) {
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.static(path.join(__dirname, 'public')));
+// Serves the built React app (vite build output) plus the live news API.
+app.use(express.static(path.join(__dirname, '..', 'dist')));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, uptime: process.uptime() });
@@ -63,12 +72,13 @@ app.get('/api/news', async (req, res) => {
   }
   const entry = getCacheEntry(key);
   if (entry.items.length === 0) {
-    await entry.refreshing; // cold cache: wait for the first successful load
+    await entry.refreshing; // cold cache: wait for the feed fetch (~seconds)
   }
   res.json({
     category: key,
     fetchedAt: entry.fetchedAt,
-    items: entry.items
+    items: entry.items,
+    enriching: Boolean(entry.enriching)
   });
 });
 

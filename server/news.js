@@ -3,7 +3,7 @@
 
 import Parser from 'rss-parser';
 import { GoogleDecoder } from 'google-news-url-decoder';
-import { CATEGORIES } from '../feeds.js';
+import { CATEGORIES } from './feeds.js';
 
 export { CATEGORIES };
 
@@ -328,7 +328,7 @@ export async function enrichImages(items, { limit = 150, budgetMs = 30_000, conc
 
 /** Fetch every feed in a category, merge, dedupe and sort. Never throws for
  *  a single dead feed — throws only if all feeds fail. */
-export async function fetchCategory(key, enrichOpts) {
+export async function fetchCategoryFeeds(key) {
   const { feeds } = CATEGORIES[key];
   const results = await Promise.allSettled(
     feeds.map((feed) =>
@@ -365,10 +365,15 @@ export async function fetchCategory(key, enrichOpts) {
 
   if (ok === 0) throw new Error(`all feeds failed for category "${key}"`);
 
-  const items = [...byTitle.values()]
+  return [...byTitle.values()]
     .sort((a, b) => b.publishedAt - a.publishedAt)
     .slice(0, 150);
+}
 
+/** Feeds + blocking image enrichment. Used by the static build, which has
+ *  time to scrape every article before deploying. */
+export async function fetchCategory(key, enrichOpts) {
+  const items = await fetchCategoryFeeds(key);
   await enrichImages(items, enrichOpts);
   return items;
 }

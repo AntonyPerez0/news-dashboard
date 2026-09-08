@@ -20,6 +20,13 @@ html, body {
   overflow: hidden;
 }
 
+/* React mounts everything inside #root — it inherits the app shell layout */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

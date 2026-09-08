@@ -1,5 +1,6 @@
-# Deploys the dashboard to GitHub Pages and keeps the static news data fresh.
-# Runs on every push, on demand, and every 15 minutes so headlines stay current.
+# Deploys the React dashboard to GitHub Pages and keeps the static news data
+# fresh. Runs on every push, on demand, and every 15 minutes so headlines and
+# article photos stay current.
 
 name: Deploy to GitHub Pages
 
@@ -29,6 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build        # typecheck + vite build → dist/
       - run: node scripts/generate-data.js
       - uses: actions/upload-pages-artifact@v3
         with:
