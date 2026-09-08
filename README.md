@@ -64,11 +64,12 @@ dist/data/<category>.json  ──── both served to ────┐
                        browser polls every 5 min (API first, static fallback)
 ```
 
-**Photo pipeline:** most RSS feeds ship no image, so each story falls back to
-scraping its page's `og:image` — Google News gateway links are resolved back
-to the real publisher URL first (via `google-news-url-decoder`). Coverage
-lands around 85–91%; publishers that block scrapers (WSJ, Reuters…) show a
-styled source monogram instead.
+**Photo & excerpt pipeline:** most RSS feeds ship no image and no summary, so
+each story falls back to scraping its article page's `og:image` and
+`og:description` — Google News gateway links are resolved back to the real
+publisher URL first (via `google-news-url-decoder`). Coverage lands around
+85–91%; publishers that block scrapers (WSJ, Reuters…) show a styled source
+monogram instead.
 
 **React architecture:** tiles are driven by a single 250ms heartbeat that
 checks each tile's `nextSwapAt` timestamp — content swaps, hover-pauses,

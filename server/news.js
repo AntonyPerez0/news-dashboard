@@ -202,19 +202,20 @@ function normalizeItem(item, feed) {
 }
 
 // ---------------------------------------------------------------------------
-// og:image scraping — most RSS feeds carry no photo, but almost every article
-// page declares one for social sharing. Scrape it as a fallback.
+// Page-meta scraping — most RSS feeds carry no photo and Google News never
+// does, but almost every article page declares an og:image (photo) and an
+// og:description (summary) for social sharing. Scrape both in one request.
 // ---------------------------------------------------------------------------
 
 const SCRAPE_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
 
-// link -> { url: string|null, at: number }; negative results expire so sites
-// that add photos later get picked up on a future refresh.
-const IMAGE_CACHE = new Map();
+// link -> { image, description, at }; fully-negative results expire so sites
+// that change their pages get picked up on a future refresh.
+const PAGE_CACHE = new Map();
 const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000;
 
-// Google News links point at a JS-redirect gateway that hides og:image from
+// Google News links point at a JS-redirect gateway that hides meta tags from
 // server-side fetchers — resolve them back to the real publisher URL first.
 const googleDecoder = new GoogleDecoder();
 const GOOGLE_NEWS_HOST = /(^|\.)news\.google\.com$/i;
@@ -257,14 +258,38 @@ function extractMetaImage(html, baseUrl) {
   return null;
 }
 
-async function scrapeOgImage(link) {
-  const cached = IMAGE_CACHE.get(link);
+/** og:description wins, then the plain description, then twitter:description. */
+function extractMetaDescription(html) {
+  const byKey = {};
+  for (const tag of html.match(/<meta[^>]*>/gi) || []) {
+    const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
+    if (!key) continue;
+    const content = CONTENT_RE.exec(tag)?.[1];
+    if (!content) continue;
+    if (key === 'og:description' && !byKey.og) byKey.og = content;
+    else if (key === 'description' && !byKey.plain) byKey.plain = content;
+    else if (key === 'twitter:description' && !byKey.twitter) byKey.twitter = content;
+  }
+  return byKey.og ?? byKey.plain ?? byKey.twitter ?? null;
+}
+
+function tidySnippet(text) {
+  if (!text) return null;
+  const cleaned = decodeEntities(text.replace(/\s+/g, ' ')).trim();
+  if (cleaned.length < 40) return null;
+  return cleaned.length > 240 ? cleaned.slice(0, 237).trimEnd() + '…' : cleaned;
+}
+
+async function scrapePageMeta(link) {
+  const cached = PAGE_CACHE.get(link);
   if (cached) {
-    if (cached.url || Date.now() - cached.at < NEGATIVE_TTL_MS) return cached.url;
+    const fresh = cached.image || cached.description || Date.now() - cached.at < NEGATIVE_TTL_MS;
+    if (fresh) return cached;
   }
 
   const articleUrl = await resolveArticleUrl(link);
-  let url = null;
+  let image = null;
+  let description = null;
   if (articleUrl) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
@@ -276,7 +301,7 @@ async function scrapeOgImage(link) {
       });
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('html')) {
-        // og:image lives in <head>; no need to download the whole page
+        // meta tags live in <head>; no need to download the whole page
         const reader = res.body.getReader();
         const chunks = [];
         let size = 0;
@@ -288,17 +313,19 @@ async function scrapeOgImage(link) {
         }
         await reader.cancel().catch(() => {});
         const head = Buffer.concat(chunks).toString('utf8');
-        url = extractMetaImage(head, res.url || articleUrl);
+        image = extractMetaImage(head, res.url || articleUrl);
+        description = tidySnippet(extractMetaDescription(head));
       }
     } catch {
-      /* timeout, 403, redirect loop — leave null */
+      /* timeout, 403, redirect loop — leave nulls */
     } finally {
       clearTimeout(timer);
     }
   }
 
-  IMAGE_CACHE.set(link, { url, at: Date.now() });
-  return url;
+  const out = { image, description, at: Date.now() };
+  PAGE_CACHE.set(link, out);
+  return out;
 }
 
 async function mapLimit(items, limit, fn) {
@@ -312,16 +339,21 @@ async function mapLimit(items, limit, fn) {
   await Promise.all(workers);
 }
 
-/** Fill in missing item photos by scraping the article pages. */
+/** Fill in missing photos and excerpts by scraping the article pages —
+ *  both come from the same single request per story. */
 export async function enrichImages(items, { limit = 150, budgetMs = 30_000, concurrency = 10 } = {}) {
   const deadline = Date.now() + budgetMs;
-  const targets = items.filter((item) => !item.image && item.link).slice(0, limit);
+  const targets = items
+    .filter((item) => (!item.image || !item.snippet) && item.link)
+    .slice(0, limit);
   if (!targets.length) return items;
 
   await mapLimit(targets, concurrency, async (item) => {
     if (Date.now() > deadline) return;
-    const url = await scrapeOgImage(item.link);
-    if (url) item.image = url;
+    const meta = await scrapePageMeta(item.link);
+    if (!meta) return;
+    if (!item.image && meta.image) item.image = meta.image;
+    if (!item.snippet && meta.description) item.snippet = meta.description;
   });
   return items;
 }
