@@ -260,7 +260,7 @@ export function extractMetaImage(html, baseUrl) {
 
 /** og:description wins, then the plain description, then twitter:description,
  *  then JSON-LD "description" (many sites only declare it there). */
-function extractMetaDescription(html) {
+export function extractMetaDescription(html) {
   const byKey = {};
   for (const tag of html.match(/<meta[^>]*>/gi) || []) {
     const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
