@@ -12,11 +12,11 @@ the news without ever touching a scrollbar.
 
 ## Features
 
-- **9 categories** — Headlines, World, Business, Technology, Sports,
-  CS Esports, Science, Health, Entertainment — aggregated from BBC, NPR,
-  Al Jazeera, The Verge, Ars Technica, TechCrunch, ESPN, Sky Sports, HLTV,
-  Phys.org, ScienceDaily, STAT, Variety,
-  MarketWatch, Yahoo Finance and Google News.
+- **10 categories** — Headlines, World, Business, Technology, Sports,
+  CS Esports, Gaming, Science, Health, Entertainment — aggregated from BBC,
+  NPR, Al Jazeera, The Verge, Ars Technica, TechCrunch, ESPN, Sky Sports,
+  HLTV, Polygon, IGN, GameSpot, Eurogamer, Phys.org, ScienceDaily, STAT,
+  Variety, MarketWatch, Yahoo Finance and Google News.
 - **Rich tiles** — each card shows the article's photo (with a styled source
   monogram when a feed doesn't provide one), the headline and a short excerpt.
   Hover a tile to pause it and click to open the story.
@@ -26,7 +26,7 @@ the news without ever touching a scrollbar.
 - **No API keys** — everything comes from public RSS feeds, fetched
   server-side (no CORS issues), deduped, and cached.
 - **Keyboard shortcuts** — `F` toggles fullscreen, `Space` pauses/resumes all
-  cycling, `1`–`9` switch categories.
+  cycling, `1`–`9` and `0` switch categories.
 - **Self-healing** — a dead feed never breaks a category; the grid adapts to
   any screen size or aspect ratio; connection status is shown in the header.
 

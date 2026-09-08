@@ -67,8 +67,9 @@ export default function App() {
       } else if (key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setAllPaused((p) => !p);
-      } else if (/^[1-9]$/.test(key)) {
-        const cat = categories[Number(key) - 1];
+      } else if (/^[0-9]$/.test(key)) {
+        const index = key === '0' ? 9 : Number(key) - 1;
+        const cat = categories[index];
         if (cat) selectCategory(cat.key);
       }
     };

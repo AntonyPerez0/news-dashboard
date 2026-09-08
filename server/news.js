@@ -258,19 +258,32 @@ export function extractMetaImage(html, baseUrl) {
   return null;
 }
 
-/** og:description wins, then the plain description, then twitter:description. */
-export function extractMetaDescription(html) {
+/** og:description wins, then the plain description, then twitter:description,
+ *  then JSON-LD "description" (many sites only declare it there). */
+function extractMetaDescription(html) {
   const byKey = {};
   for (const tag of html.match(/<meta[^>]*>/gi) || []) {
     const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
     if (!key) continue;
-    const content = CONTENT_RE.exec(tag)?.[1];
+    const content = /content=["']([^"']+)["']/i.exec(tag)?.[1];
     if (!content) continue;
     if (key === 'og:description' && !byKey.og) byKey.og = content;
     else if (key === 'description' && !byKey.plain) byKey.plain = content;
     else if (key === 'twitter:description' && !byKey.twitter) byKey.twitter = content;
   }
-  return byKey.og ?? byKey.plain ?? byKey.twitter ?? null;
+  if (byKey.og ?? byKey.plain ?? byKey.twitter) {
+    return byKey.og ?? byKey.plain ?? byKey.twitter;
+  }
+  // JSON-LD: "description":"..." (first newsArticle-like block wins)
+  const jsonLd = /"description"\s*:\s*"((?:[^"\\]|\\.){40,})"/.exec(html);
+  if (jsonLd) {
+    try {
+      return JSON.parse(`"${jsonLd[1]}"`);
+    } catch {
+      return jsonLd[1].replace(/\\"/g, '"');
+    }
+  }
+  return null;
 }
 
 export function tidySnippet(text) {

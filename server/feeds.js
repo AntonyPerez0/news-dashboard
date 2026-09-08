@@ -62,6 +62,17 @@ export const CATEGORIES = {
       { url: 'https://www.skysports.com/rss/12040', name: 'Sky Sports' }
     ]
   },
+  gaming: {
+    label: 'Gaming',
+    feeds: [
+      googleTopic('GAMING'),
+      { url: 'https://www.theverge.com/rss/games/index.xml', name: 'The Verge' },
+      { url: 'https://www.polygon.com/rss/index.xml', name: 'Polygon' },
+      { url: 'https://feeds.ign.com/ign/games-all', name: 'IGN' },
+      { url: 'https://www.gamespot.com/feeds/news/', name: 'GameSpot' },
+      { url: 'https://www.eurogamer.net/feed', name: 'Eurogamer' }
+    ]
+  },
   esports: {
     label: 'CS Esports',
     feeds: [

@@ -81,7 +81,7 @@ export function SettingsDrawer({ open, settings, onChange, onReset, onClose }: S
           <ul className="shortcut-list">
             <li><kbd>F</kbd> fullscreen</li>
             <li><kbd>Space</kbd> pause / resume</li>
-            <li><kbd>1</kbd>–<kbd>9</kbd> switch category</li>
+            <li><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> switch category</li>
             <li><kbd>Enter</kbd> open focused story</li>
           </ul>
         </section>

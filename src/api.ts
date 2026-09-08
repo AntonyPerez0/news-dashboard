@@ -7,6 +7,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { key: 'technology', label: 'Technology' },
   { key: 'sports', label: 'Sports' },
   { key: 'esports', label: 'CS Esports' },
+  { key: 'gaming', label: 'Gaming' },
   { key: 'science', label: 'Science' },
   { key: 'health', label: 'Health' },
   { key: 'entertainment', label: 'Entertainment' }
