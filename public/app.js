@@ -31,21 +31,28 @@ const els = {
 
 /* ------------------------------------------------------ cycle progress bar */
 
+/* Bars are pure functions of time — recomputed on a 250ms interval from the
+ * moment each tile was armed. No CSS transitions, nothing to stall. */
+
 function armProgress(t, delay) {
-  const bar = t.progress;
-  bar.style.transition = 'none';
-  bar.style.width = '0%';
-  requestAnimationFrame(() => {
-    bar.style.transition = `width ${delay}ms linear`;
-    bar.style.width = '100%';
-  });
+  t.progressStart = performance.now();
+  t.progressEnd = t.progressStart + delay;
+  t.progressArmed = true;
 }
 
 function freezeProgress(t) {
-  const bar = t.progress;
-  const width = getComputedStyle(bar).width;
-  bar.style.transition = 'none';
-  bar.style.width = width;
+  t.progressArmed = false;
+}
+
+function updateBars() {
+  if (state.allPaused) return;
+  const now = performance.now();
+  for (const t of state.tiles) {
+    if (!t.progressArmed) continue;
+    const span = t.progressEnd - t.progressStart;
+    const pct = span > 0 ? Math.min(1, (now - t.progressStart) / span) : 1;
+    t.progress.style.width = (pct * 100).toFixed(1) + '%';
+  }
 }
 
 const state = {
@@ -495,6 +502,8 @@ window.addEventListener('resize', () => {
   clearTimeout(state._resizeTimer);
   state._resizeTimer = setTimeout(buildGrid, 150);
 });
+
+setInterval(updateBars, 250);
 
 loadCategories();
 refresh();
