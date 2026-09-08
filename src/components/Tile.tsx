@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CYCLE_MS, PRELOAD_CAP_MS, SWAP_MS } from '../config';
-import { once, timeAgo } from '../utils';
+import { CYCLE_MS, FRESH_MS, PRELOAD_CAP_MS, SWAP_MS } from '../config';
+import { faviconUrl, once, siteHostOf, timeAgo } from '../utils';
 import type { NewsItem } from '../types';
 
 interface TileProps {
@@ -11,6 +11,7 @@ interface TileProps {
   gridPaused: boolean;
   timeTick: number;
   loading: boolean;
+  cycleMs: number;
   register: (index: number, tick: ((now: number) => void) | null) => void;
 }
 
@@ -18,6 +19,7 @@ interface TileRuntime {
   pointer: number;
   nextSwapAt: number;
   paused: boolean;
+  cycleMs: number;
 }
 
 /**
@@ -26,11 +28,13 @@ interface TileRuntime {
  * timestamp of its next swap, so a missed timer can never permanently
  * stall it and the countdown bar is a pure function of time.
  */
-export function Tile({ index, total, accent, list, gridPaused, timeTick, loading, register }: TileProps) {
+export function Tile({
+  index, total, accent, list, gridPaused, timeTick, loading, cycleMs, register
+}: TileProps) {
   const [current, setCurrent] = useState<NewsItem | null>(null);
   const [swapping, setSwapping] = useState(false);
   const [imgState, setImgState] = useState<'idle' | 'loaded' | 'failed'>('idle');
-  const runtime = useRef<TileRuntime>({ pointer: 0, nextSwapAt: 0, paused: false });
+  const runtime = useRef<TileRuntime>({ pointer: 0, nextSwapAt: 0, paused: false, cycleMs });
   const assignedList = useRef<NewsItem[] | null>(null);
   const listRef = useRef(list);
   const currentRef = useRef(current);
@@ -42,6 +46,7 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
   listRef.current = list;
   currentRef.current = current;
   gridPausedRef.current = gridPaused;
+  runtime.current.cycleMs = cycleMs;
 
   // New stride list (first load or refresh): commit content without the
   // swap animation, keeping the pointer so fresh stories flow in naturally.
@@ -70,7 +75,7 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
 
   const advance = (now: number) => {
     const state = runtime.current;
-    state.nextSwapAt = now + CYCLE_MS;
+    state.nextSwapAt = now + state.cycleMs;
     const item = listRef.current[state.pointer % Math.max(1, listRef.current.length)];
     state.pointer++;
     if (!item || item === currentRef.current) return;
@@ -110,8 +115,8 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
     if (state.paused || hovered) return; // user is reading — freeze the tile
 
     if (barRef.current) {
-      const startedAt = state.nextSwapAt - CYCLE_MS;
-      const pct = Math.min(1, Math.max(0, (now - startedAt) / CYCLE_MS));
+      const startedAt = state.nextSwapAt - state.cycleMs;
+      const pct = Math.min(1, Math.max(0, (now - startedAt) / state.cycleMs));
       barRef.current.style.width = (pct * 100).toFixed(1) + '%';
     }
 
@@ -126,21 +131,32 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
   const item = current;
   const hasImage = !!item?.image && imgState !== 'failed';
   const monogram = (item?.source || '?').trim().charAt(0).toUpperCase() || '?';
+  const host = item ? siteHostOf(item) : null;
+  const isNew = !!item && Date.now() - item.publishedAt < FRESH_MS;
 
   const classes = [
     'tile',
     loading || !item ? 'loading' : '',
     hasImage ? '' : 'no-img',
-    item?.snippet ? '' : 'no-snippet'
+    item?.snippet ? '' : 'no-snippet',
+    isNew ? 'fresh' : ''
   ]
     .filter(Boolean)
     .join(' ');
+
+  const open = () => {
+    if (current?.link) window.open(current.link, '_blank', 'noopener');
+  };
 
   return (
     <article
       ref={tileRef}
       className={classes}
       style={{ '--accent': accent } as React.CSSProperties}
+      role="button"
+      tabIndex={0}
+      aria-label={item ? `${item.source}: ${item.title}` : 'Loading story'}
+      data-tick={timeTick}
       onMouseEnter={() => {
         runtime.current.paused = true;
       }}
@@ -148,10 +164,10 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
         runtime.current.paused = false;
         runtime.current.nextSwapAt = performance.now() + 1200;
       }}
-      onClick={() => {
-        if (current?.link) window.open(current.link, '_blank', 'noopener');
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') open();
       }}
-      data-tick={timeTick}
     >
       <div className={swapping ? 'tile-inner swap' : 'tile-inner'}>
         <div className="tile-media">
@@ -171,7 +187,21 @@ export function Tile({ index, total, accent, list, gridPaused, timeTick, loading
         </div>
         <div className="tile-body">
           <div className="tile-meta">
-            <div className="tile-source">{item?.source}</div>
+            <div className="tile-source-wrap">
+              {host && (
+                <img
+                  className="tile-favicon"
+                  src={faviconUrl(host)}
+                  alt=""
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              )}
+              <span className="tile-source">{item?.source}</span>
+              {isNew && <span className="badge-new">NEW</span>}
+            </div>
             <div className="tile-time">{item ? timeAgo(item.publishedAt) : ''}</div>
           </div>
           <div className="tile-headline">

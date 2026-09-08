@@ -21,3 +21,10 @@ export interface Category {
 }
 
 export type FeedStatus = 'loading' | 'ok' | 'stale' | 'error';
+
+export interface Settings {
+  /** Headline swap interval per tile, in milliseconds. */
+  cycleMs: number;
+  showSnippets: boolean;
+  showImages: boolean;
+}

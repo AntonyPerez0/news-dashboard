@@ -17,3 +17,27 @@ export function once(fn: () => void): () => void {
     fn();
   };
 }
+
+/** Grid dimensions for a viewport: picks columns from the aspect ratio so
+ *  every tile stays roughly square-ish, then fills rows to hold 12+ tiles. */
+export function computeLayout(width: number, height: number): { rows: number; cols: number } {
+  const aspect = width / Math.max(1, height);
+  const cols = Math.min(6, Math.max(2, Math.round(Math.sqrt(12 * aspect))));
+  const rows = Math.min(6, Math.max(2, Math.ceil(12 / cols)));
+  return { rows, cols };
+}
+
+/** Publisher hostname for favicon/logos — prefers the resolved publisher
+ *  site recorded during enrichment, falls back to the link's own host. */
+export function siteHostOf(item: { link: string; site?: string }): string | null {
+  const raw = item.site ? `https://${item.site}` : item.link;
+  try {
+    return new URL(raw).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+export function faviconUrl(host: string): string {
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+}

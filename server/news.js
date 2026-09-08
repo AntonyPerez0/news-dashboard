@@ -43,14 +43,14 @@ async function parseFeed(url) {
 
 /** Escape bare "&" characters that sloppy feeds emit and strict XML rejects
  *  ("S&P 500" → "S&amp;P 500"). Real entities (named or numeric) survive. */
-function sanitizeXml(xml) {
+export function sanitizeXml(xml) {
   return xml.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
 }
 
 // Google News appends " - Outlet" to every headline, sometimes twice
 // ("Headline - Outlet news - Outlet"). Strip repeatedly; the last suffix
 // stripped is the most reliable source label.
-function stripAggregatorSuffix(title) {
+export function stripAggregatorSuffix(title) {
   let titleOut = title;
   let source = null;
   for (let i = 0; i < 3; i++) {
@@ -168,11 +168,11 @@ function extractSnippet(item) {
 const JUNK_TITLE_RE =
   /prediction\s*&?\s*betting tip|betting tip|live score and match stats|match preview & odds/i;
 
-function isJunk(title) {
+export function isJunk(title) {
   return JUNK_TITLE_RE.test(title);
 }
 
-function normalizeItem(item, feed) {
+export function normalizeItem(item, feed) {
   let title = (item.title || '').trim();
   let source = feed.name;
 
@@ -241,7 +241,7 @@ const META_IMAGE_RE =
   /<meta[^>]*(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image(?::src)?)["'][^>]*>/gi;
 const CONTENT_RE = /content=["']([^"']+)["']/i;
 
-function extractMetaImage(html, baseUrl) {
+export function extractMetaImage(html, baseUrl) {
   for (const tag of html.match(META_IMAGE_RE) || []) {
     const content = CONTENT_RE.exec(tag)?.[1];
     if (!content) continue;
@@ -259,7 +259,7 @@ function extractMetaImage(html, baseUrl) {
 }
 
 /** og:description wins, then the plain description, then twitter:description. */
-function extractMetaDescription(html) {
+export function extractMetaDescription(html) {
   const byKey = {};
   for (const tag of html.match(/<meta[^>]*>/gi) || []) {
     const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
@@ -273,7 +273,7 @@ function extractMetaDescription(html) {
   return byKey.og ?? byKey.plain ?? byKey.twitter ?? null;
 }
 
-function tidySnippet(text) {
+export function tidySnippet(text) {
   if (!text) return null;
   const cleaned = decodeEntities(text.replace(/\s+/g, ' ')).trim();
   if (cleaned.length < 40) return null;
@@ -290,7 +290,13 @@ async function scrapePageMeta(link) {
   const articleUrl = await resolveArticleUrl(link);
   let image = null;
   let description = null;
+  let site = null;
   if (articleUrl) {
+    try {
+      site = new URL(articleUrl).hostname.replace(/^www\./, '');
+    } catch {
+      site = null;
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
     try {
@@ -323,7 +329,7 @@ async function scrapePageMeta(link) {
     }
   }
 
-  const out = { image, description, at: Date.now() };
+  const out = { image, description, site, at: Date.now() };
   PAGE_CACHE.set(link, out);
   return out;
 }
@@ -354,6 +360,7 @@ export async function enrichImages(items, { limit = 150, budgetMs = 30_000, conc
     if (!meta) return;
     if (!item.image && meta.image) item.image = meta.image;
     if (!item.snippet && meta.description) item.snippet = meta.description;
+    if (!item.site && meta.site) item.site = meta.site;
   });
   return items;
 }

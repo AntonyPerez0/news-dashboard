@@ -1,5 +1,8 @@
 # News Dashboard
 
+[![CI](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/ci.yml)
+[![Deploy](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/AntonyPerez0/news-dashboard/actions/workflows/deploy.yml)
+
 An ambient, fullscreen news dashboard built for a second monitor — now in
 **React + TypeScript (Vite)**. Live headlines arrive as a grid of rich tiles
 that continuously fade out and cycle to the next story, so you can glance over

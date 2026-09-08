@@ -11,6 +11,7 @@ interface HeaderProps {
   time: string;
   date: string;
   onToggleFullscreen: () => void;
+  onOpenSettings: () => void;
 }
 
 const STATUS_LABEL: Record<FeedStatus, string> = {
@@ -21,7 +22,7 @@ const STATUS_LABEL: Record<FeedStatus, string> = {
 };
 
 export function Header({
-  categories, active, onSelect, status, fetchedAt, paused, time, date, onToggleFullscreen
+  categories, active, onSelect, status, fetchedAt, paused, time, date, onToggleFullscreen, onOpenSettings
 }: HeaderProps) {
   const label = status === 'ok' && fetchedAt ? `updated ${timeAgo(fetchedAt)}` : STATUS_LABEL[status];
 
@@ -59,6 +60,19 @@ export function Header({
         </span>
         <span id="date">{date}</span>
         <span id="clock">{time}</span>
+        <button
+          id="settings-btn"
+          title="Settings"
+          aria-label="Open settings"
+          aria-haspopup="dialog"
+          onClick={onOpenSettings}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M2 4.5h7M13 4.5h1M2 11.5h3M9 11.5h5" />
+            <circle cx="11" cy="4.5" r="1.8" />
+            <circle cx="7" cy="11.5" r="1.8" />
+          </svg>
+        </button>
         <button id="fs-btn" title="Toggle fullscreen (F)" aria-label="Toggle fullscreen" onClick={onToggleFullscreen}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
             <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" />

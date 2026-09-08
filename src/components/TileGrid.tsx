@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { PALETTE } from '../config';
 import { useWindowSize } from '../hooks/useWindowSize';
-import type { NewsItem } from '../types';
+import { computeLayout } from '../utils';
+import type { NewsItem, Settings } from '../types';
 import { Tile } from './Tile';
 
 interface TileGridProps {
@@ -9,16 +10,10 @@ interface TileGridProps {
   items: NewsItem[];
   allPaused: boolean;
   timeTick: number;
+  settings: Settings;
 }
 
-function computeLayout(width: number, height: number): { rows: number; cols: number } {
-  const aspect = width / Math.max(1, height);
-  const cols = Math.min(6, Math.max(2, Math.round(Math.sqrt(12 * aspect))));
-  const rows = Math.min(6, Math.max(2, Math.ceil(12 / cols)));
-  return { rows, cols };
-}
-
-export function TileGrid({ category, items, allPaused, timeTick }: TileGridProps) {
+export function TileGrid({ category, items, allPaused, timeTick, settings }: TileGridProps) {
   const { width, height } = useWindowSize();
   const { rows, cols } = useMemo(() => computeLayout(width, height), [width, height]);
   const count = rows * cols;
@@ -53,6 +48,9 @@ export function TileGrid({ category, items, allPaused, timeTick }: TileGridProps
       key={category}
       id="grid"
       role="main"
+      className={[!settings.showSnippets ? 'no-snippets' : '', !settings.showImages ? 'no-images' : '']
+        .filter(Boolean)
+        .join(' ')}
       style={{
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
         gridTemplateRows: `repeat(${rows}, 1fr)`
@@ -68,6 +66,7 @@ export function TileGrid({ category, items, allPaused, timeTick }: TileGridProps
           gridPaused={allPaused}
           timeTick={timeTick}
           loading={loading}
+          cycleMs={settings.cycleMs}
           register={register}
         />
       ))}
