@@ -378,6 +378,53 @@ export async function enrichImages(items, { limit = 150, budgetMs = 30_000, conc
   return items;
 }
 
+// ---------------------------------------------------------------------------
+// Near-duplicate collapsing — different feeds word the same story slightly
+// differently ("with $45m owed" vs "with over $45m owed"), which exact-title
+// deduping lets through and the grid then shows twice.
+// ---------------------------------------------------------------------------
+
+export function titleTokens(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/** True when two headlines describe the same story: ≥85% token containment
+ *  and every number-bearing token matches exactly (so different scores or
+ *  amounts never merge). Short headlines skip the fuzzy check. */
+export function areNearDuplicates(aTitle, bTitle) {
+  const a = titleTokens(aTitle);
+  const b = titleTokens(bTitle);
+  if (a.length < 5 || b.length < 5) return false;
+
+  const setA = new Set(a);
+  const setB = new Set(b);
+  for (const token of setA) {
+    if (/\d/.test(token) && !setB.has(token)) return false;
+  }
+
+  let shared = 0;
+  for (const token of setA) {
+    if (setB.has(token)) shared++;
+  }
+  return shared / Math.min(setA.size, setB.size) >= 0.85;
+}
+
+/** Keep the first of each near-duplicate run (input is newest-first, so the
+ *  freshest wording survives). */
+export function dedupeNearDuplicates(items) {
+  const kept = [];
+  for (const item of items) {
+    if (!kept.some((other) => areNearDuplicates(other.title, item.title))) {
+      kept.push(item);
+    }
+  }
+  return kept;
+}
+
 /** Fetch every feed in a category, merge, dedupe and sort. Never throws for
  *  a single dead feed — throws only if all feeds fail. */
 export async function fetchCategoryFeeds(key) {
@@ -417,9 +464,8 @@ export async function fetchCategoryFeeds(key) {
 
   if (ok === 0) throw new Error(`all feeds failed for category "${key}"`);
 
-  return [...byTitle.values()]
-    .sort((a, b) => b.publishedAt - a.publishedAt)
-    .slice(0, 150);
+  const sorted = [...byTitle.values()].sort((a, b) => b.publishedAt - a.publishedAt);
+  return dedupeNearDuplicates(sorted).slice(0, 150);
 }
 
 /** Feeds + blocking image enrichment. Used by the static build, which has

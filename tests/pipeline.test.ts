@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  areNearDuplicates,
+  dedupeNearDuplicates,
   extractMetaDescription,
   extractMetaImage,
   isJunk,
@@ -8,6 +10,39 @@ import {
   stripAggregatorSuffix,
   tidySnippet
 } from '../server/news.js';
+
+describe('near-duplicate collapsing', () => {
+  const livA = 'LIV files for bankruptcy protection with $45m owed to players';
+  const livB = 'LIV files for bankruptcy protection with over $45m owed to players';
+
+  it('flags lightly-reworded versions of the same story', () => {
+    expect(areNearDuplicates(livA, livB)).toBe(true);
+  });
+
+  it('never merges stories with different numbers (scores, amounts)', () => {
+    const other = 'LIV files for bankruptcy protection with over $120m owed to players';
+    expect(areNearDuplicates(livA, other)).toBe(false);
+  });
+
+  it('keeps genuinely different headlines', () => {
+    expect(areNearDuplicates(livA, 'Real Madrid beat Inter Milan as Mbappe goal sets the tone')).toBe(false);
+  });
+
+  it('skips the fuzzy check on very short headlines', () => {
+    expect(areNearDuplicates('Fed cuts rates', 'Fed raises rates')).toBe(false);
+  });
+
+  it('keeps the first of each duplicate run', () => {
+    const items = [
+      { title: livB, source: 'A' },
+      { title: livA, source: 'B' },
+      { title: 'Real Madrid beat Inter Milan as Mbappe goal sets the tone', source: 'C' }
+    ];
+    const out = dedupeNearDuplicates(items);
+    expect(out).toHaveLength(2);
+    expect(out[0]?.source).toBe('A');
+  });
+});
 
 describe('stripAggregatorSuffix', () => {
   it('strips a single source suffix', () => {

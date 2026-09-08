@@ -35,8 +35,9 @@ inconsistent third-party data, with zero API keys and zero server costs.
   links back to real publisher URLs. Coverage: ~90 % photos, ~90 % excerpts;
   scraper-blocking publishers (WSJ, Reuters) degrade to styled monograms
 - **Self-healing data layer** — `Promise.allSettled` per feed means one dead
-  outlet never takes down a category; stale-while-revalidate caching with
-  negative-result backoff keeps upstream feeds unharmed during outages
+  outlet never takes down a category; fuzzy near-duplicate collapsing stops
+  lightly-reworded versions of the same story appearing twice; SWR caching
+  with negative-result backoff keeps upstream feeds unharmed during outages
 - **10 categories, 20+ feeds** — Headlines, World, Business, Technology,
   Sports, CS Esports, Gaming, Science, Health, Entertainment, aggregated from
   BBC, NPR, Al Jazeera, The Verge, Ars Technica, ESPN, HLTV, Polygon, IGN,
