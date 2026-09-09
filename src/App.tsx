@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_CATEGORIES, loadCategories } from './api';
 import { Header } from './components/Header';
+import { OfflineBanner } from './components/OfflineBanner';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { TileGrid } from './components/TileGrid';
 import { Toast } from './components/Toast';
@@ -99,6 +100,7 @@ export default function App() {
 
   return (
     <>
+      <OfflineBanner />
       <Header
         categories={categories}
         active={category}

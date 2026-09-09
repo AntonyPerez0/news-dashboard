@@ -1,4 +1,5 @@
 import { CYCLE_OPTIONS } from '../settings';
+import { APP_VERSION, BUILD_DATE, LIVE_URL, REPO_URL } from '../version';
 import type { Settings, ThemeSetting } from '../types';
 
 const THEME_OPTIONS: { label: string; value: ThemeSetting }[] = [
@@ -108,6 +109,38 @@ export function SettingsDrawer({ open, settings, onChange, onReset, onClose }: S
             <li><kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> switch category</li>
             <li><kbd>Enter</kbd> open focused story</li>
           </ul>
+        </section>
+
+        <section className="about">
+          <h3>About</h3>
+          <div className="about-rows">
+            <div className="about-row">
+              <span>Version</span>
+              <code>v{APP_VERSION}</code>
+            </div>
+            <div className="about-row">
+              <span>Build</span>
+              <code>{BUILD_DATE}</code>
+            </div>
+            <div className="about-row">
+              <span>Privacy</span>
+              <span className="about-note">no analytics, no tracking</span>
+            </div>
+            <div className="about-row">
+              <span>Install</span>
+              <span className="about-note">
+                via your browser's install option
+              </span>
+            </div>
+          </div>
+          <div className="about-links">
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              Source
+            </a>
+            <a href={LIVE_URL} target="_blank" rel="noopener noreferrer">
+              Live site
+            </a>
+          </div>
         </section>
 
         <button className="reset-btn" onClick={onReset}>
