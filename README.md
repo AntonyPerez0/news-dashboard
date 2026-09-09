@@ -130,6 +130,12 @@ gaming: {
 }
 ```
 
+## Versioning & changelog
+
+Releases follow [semver](https://semver.org/) and are tagged; notable changes
+are documented in [CHANGELOG.md](CHANGELOG.md). Contributions welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

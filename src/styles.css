@@ -6,12 +6,55 @@
   --border: rgba(255, 255, 255, 0.09);
   --border-hover: rgba(255, 255, 255, 0.22);
   --text: #edf0f6;
+  --text-strong: #ffffff;
   --muted: #98a2b6;
   --faint: #6b7488;
   --accent: #3d7bff;
   --radius: 14px;
   --font-ui: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-headline: 'Newsreader Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+
+  /* chrome surfaces (dark by default; the light theme overrides these) */
+  --header-bg: rgba(13, 17, 25, 0.92);
+  --panel: #12161f;
+  --hover-fill: rgba(255, 255, 255, 0.06);
+  --btn-border: rgba(255, 255, 255, 0.12);
+  --btn-bg: rgba(255, 255, 255, 0.03);
+  --btn-border-hover: rgba(255, 255, 255, 0.3);
+  --btn-bg-hover: rgba(255, 255, 255, 0.07);
+  --line-soft: rgba(255, 255, 255, 0.14);
+  --shadow: rgba(0, 0, 0, 0.45);
+  --mono-ink: rgba(255, 255, 255, 0.09);
+  --favicon-bg: rgba(255, 255, 255, 0.92);
+  --slider-bg: rgba(255, 255, 255, 0.16);
+}
+
+/* ---- light "newsprint" edition ---- */
+:root[data-theme='light'] {
+  --bg: #f2f4f8;
+  --card: #ffffff;
+  --card-2: #f7f9fc;
+  --band: #e6eaf1;
+  --border: rgba(18, 28, 48, 0.12);
+  --border-hover: rgba(18, 28, 48, 0.3);
+  --text: #1c2434;
+  --text-strong: #0b1220;
+  --muted: #55607a;
+  --faint: #8a94a8;
+  --accent: #2f66e0;
+
+  --header-bg: rgba(255, 255, 255, 0.94);
+  --panel: #ffffff;
+  --hover-fill: rgba(18, 28, 48, 0.05);
+  --btn-border: rgba(18, 28, 48, 0.14);
+  --btn-bg: rgba(18, 28, 48, 0.02);
+  --btn-border-hover: rgba(18, 28, 48, 0.34);
+  --btn-bg-hover: rgba(18, 28, 48, 0.06);
+  --line-soft: rgba(18, 28, 48, 0.16);
+  --shadow: rgba(30, 42, 70, 0.16);
+  --mono-ink: rgba(18, 28, 48, 0.08);
+  --favicon-bg: #ffffff;
+  --slider-bg: rgba(18, 28, 48, 0.18);
 }
 
 * { box-sizing: border-box; }
@@ -65,7 +108,7 @@ header {
   align-items: center;
   gap: 12px;
   padding: 6px 14px;
-  background: rgba(13, 17, 25, 0.92);
+  background: var(--header-bg);
   border-bottom: 1px solid var(--border);
   user-select: none;
   min-width: 0;
@@ -112,7 +155,7 @@ header {
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
-.cat-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.cat-btn:hover { color: var(--text); background: var(--hover-fill); }
 
 .cat-btn.active {
   background: var(--accent);
@@ -186,8 +229,8 @@ header {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
   color: var(--muted);
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
@@ -195,8 +238,8 @@ header {
 
 #fs-btn:hover {
   color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--btn-border-hover);
+  background: var(--btn-bg-hover);
 }
 
 #settings-btn {
@@ -206,8 +249,8 @@ header {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--btn-border);
+  background: var(--btn-bg);
   color: var(--muted);
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
@@ -215,8 +258,8 @@ header {
 
 #settings-btn:hover {
   color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--btn-border-hover);
+  background: var(--btn-bg-hover);
 }
 
 /* -------------------------------------------------------------------- grid */
@@ -244,7 +287,7 @@ header {
 
 .tile:hover {
   border-color: var(--border-hover);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 10px 30px var(--shadow);
   transform: translateY(-1px);
 }
 
@@ -327,7 +370,7 @@ header {
   font-size: clamp(46px, 4.6vw, 88px);
   font-weight: 800;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.09);
+  color: var(--mono-ink);
   display: none;
   pointer-events: none;
 }
@@ -366,10 +409,10 @@ header {
   width: 15px;
   height: 15px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--favicon-bg);
   padding: 2px;
   box-sizing: content-box;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--line-soft);
 }
 
 .badge-new {
@@ -430,7 +473,7 @@ header {
   transition: color 0.15s;
 }
 
-.tile:hover .tile-headline span { color: #fff; }
+.tile:hover .tile-headline span { color: var(--text-strong); }
 
 .tile-snippet {
   flex: 1;
@@ -568,7 +611,7 @@ header {
   right: 0;
   bottom: 0;
   width: min(320px, 92vw);
-  background: #12161f;
+  background: var(--panel);
   border-left: 1px solid var(--border);
   box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
   transform: translateX(105%);
@@ -602,13 +645,13 @@ header {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--btn-border);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
 }
 
-.drawer-close:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.3); }
+.drawer-close:hover { color: var(--text); border-color: var(--btn-border-hover); }
 
 .drawer section {
   border-top: 1px solid var(--border);
@@ -638,13 +681,63 @@ header {
   cursor: pointer;
 }
 
-.seg button:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.25); }
+.seg button:hover { color: var(--text); border-color: var(--btn-border-hover); }
 
 .seg button.active {
   background: var(--accent);
   border-color: transparent;
   color: #fff;
 }
+
+.seg-note {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.75;
+  margin-top: 1px;
+}
+
+/* ------------------------------------------------------- crash recovery */
+
+.crash-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  padding: 24px;
+}
+
+.crash-screen h1 {
+  margin: 12px 0 0;
+  font-size: 16px;
+  letter-spacing: 3px;
+  font-weight: 800;
+}
+
+.crash-screen p {
+  margin: 0 0 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.crash-screen button {
+  padding: 10px 26px;
+  border-radius: 9px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.crash-screen button:hover { filter: brightness(1.1); }
 
 .switch-row {
   display: flex;
@@ -668,7 +761,7 @@ header {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--slider-bg);
   transition: background 0.2s;
   cursor: pointer;
   display: block;
@@ -712,8 +805,8 @@ header {
   text-align: center;
   padding: 2px 6px;
   border-radius: 5px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line-soft);
+  background: var(--hover-fill);
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 11px;
@@ -725,7 +818,7 @@ header {
   margin-top: auto;
   padding: 9px 0;
   border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--line-soft);
   background: transparent;
   color: var(--muted);
   font-size: 13px;

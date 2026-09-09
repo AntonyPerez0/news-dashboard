@@ -3,8 +3,15 @@ import type { Settings } from './types';
 export const DEFAULT_SETTINGS: Settings = {
   cycleMs: 18_000,
   showSnippets: true,
-  showImages: true
+  showImages: true,
+  theme: 'auto'
 };
+
+/** Daytime window for the "auto" theme: light between 7:00 and 19:00 local. */
+export function isDaytime(date = new Date()): boolean {
+  const hour = date.getHours();
+  return hour >= 7 && hour < 19;
+}
 
 export const CYCLE_OPTIONS: { label: string; value: number }[] = [
   { label: '12s', value: 12_000 },

@@ -1,5 +1,11 @@
 import { CYCLE_OPTIONS } from '../settings';
-import type { Settings } from '../types';
+import type { Settings, ThemeSetting } from '../types';
+
+const THEME_OPTIONS: { label: string; value: ThemeSetting }[] = [
+  { label: 'Auto', value: 'auto' },
+  { label: 'Light', value: 'light' },
+  { label: 'Dark', value: 'dark' }
+];
 
 interface SettingsDrawerProps {
   open: boolean;
@@ -45,6 +51,24 @@ export function SettingsDrawer({ open, settings, onChange, onReset, onClose }: S
                 onClick={() => onChange({ cycleMs: opt.value })}
               >
                 {opt.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3>Theme</h3>
+          <div className="seg" role="radiogroup" aria-label="Theme">
+            {THEME_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                role="radio"
+                aria-checked={settings.theme === opt.value}
+                className={settings.theme === opt.value ? 'active' : ''}
+                onClick={() => onChange({ theme: opt.value })}
+              >
+                {opt.label}
+                {opt.value === 'auto' && <span className="seg-note">7–19h</span>}
               </button>
             ))}
           </div>
