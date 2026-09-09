@@ -1,6 +1,6 @@
 {
   "name": "news-dashboard",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Ambient fullscreen news dashboard for a second monitor. React + TypeScript tiles that continuously cycle live headlines across 9 categories.",
   "type": "module",
   "private": true,

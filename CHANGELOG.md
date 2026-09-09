@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0] — 2026-09-08
+
+### Added
+
+- **PWA** — installable (manifest, maskable icons), offline-capable:
+  cache-first app shell, network-first news data with stale flag, so the
+  dashboard boots and runs with the last known headlines even when offline
+- **Offline banner** — slim pill when the browser reports no connectivity
+- **About panel** — version, build date, privacy note ("no analytics, no
+  tracking"), source + live-site links in the settings drawer
+- Brand icons (192/512/maskable/apple-touch) generated from the logo
+
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
