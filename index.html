@@ -5,7 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>News Dashboard</title>
   <meta name="description" content="A live news dashboard for a second monitor — ten categories of headlines cycling through a grid of rich tiles with photos, excerpts and source logos." />
-  <meta name="theme-color" content="#0b0e14" />
+    <meta name="theme-color" content="#0b0e14" />
+    <script>
+      // Pre-paint theming: applies the saved theme before first paint so a
+      // reload never flashes the dark default over light mode (anti-FOUC).
+      // Mirrors resolveTheme() in src/theme.ts — keep the two in sync.
+      (function () {
+        try {
+          var raw = JSON.parse(localStorage.getItem('nd.settings') || '{}');
+          var theme = raw.theme || 'auto';
+          var url = new URLSearchParams(window.location.search).get('theme');
+          if (url === 'light' || url === 'dark') theme = url;
+          var hour = new Date().getHours();
+          var resolved =
+            theme === 'auto' ? (hour >= 7 && hour < 19 ? 'light' : 'dark') : theme;
+          document.documentElement.dataset.theme = resolved;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.content = resolved === 'light' ? '#f2f4f8' : '#0b0e14';
+        } catch (e) {
+          /* fall back to the dark default */
+        }
+      })();
+    </script>
   <meta property="og:title" content="News Dashboard — ambient live headlines" />
   <meta property="og:description" content="Ten categories of live news cycling through a glanceable tile grid. Photos, excerpts, source logos — zero scrolling." />
   <meta property="og:image" content="https://antonyperez0.github.io/news-dashboard/og-card.jpg" />

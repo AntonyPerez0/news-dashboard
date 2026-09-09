@@ -6,7 +6,8 @@ import { TileGrid } from './components/TileGrid';
 import { Toast } from './components/Toast';
 import { useClock } from './hooks/useClock';
 import { useNews } from './hooks/useNews';
-import { DEFAULT_SETTINGS, isDaytime, loadSettings, saveSettings } from './settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
+import { applyTheme, resolveTheme } from './theme';
 import type { Settings } from './types';
 
 export default function App() {
@@ -32,17 +33,13 @@ export default function App() {
 
   // Day/night theming: "auto" follows the clock (light 07:00–19:00 local),
   // explicit choices pin the theme. Re-evaluated every minute while auto.
-  // A ?theme=light|dark URL param wins — handy for sharing theme previews.
+  // The index.html pre-paint script applies the saved theme before first
+  // paint; this keeps it live (clock crossing the daytime window, setting
+  // changes).
   useEffect(() => {
-    const urlTheme = new URLSearchParams(window.location.search).get('theme');
-    const effective =
-      urlTheme === 'light' || urlTheme === 'dark' ? urlTheme : settings.theme;
-    const apply = () => {
-      const resolved = effective === 'auto' ? (isDaytime() ? 'light' : 'dark') : effective;
-      document.documentElement.dataset.theme = resolved;
-    };
+    const apply = () => applyTheme(resolveTheme(settings.theme));
     apply();
-    if (effective !== 'auto') return;
+    if (settings.theme !== 'auto') return;
     const id = setInterval(apply, 60_000);
     return () => clearInterval(id);
   }, [settings.theme]);

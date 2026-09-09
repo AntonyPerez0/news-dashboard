@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [2.1.0] — 2026-09-08
 
+### Fixed
+
+- **Page reloading itself every ~8s** — the recovery screen's auto-reload
+  countdown started on mount instead of on error, so the dashboard
+  full-page-reloaded in normal operation. The countdown now only starts when
+  a render error actually occurs
+- **Light mode flashing dark on every reload** — the saved theme is now
+  applied by a pre-paint script in `index.html` before first paint (the dark
+  `:root` default used to flash first). The browser-chrome `theme-color`
+  follows the active theme too
+- **Infinite recovery loop** — after 3 auto-reloads within a minute (a
+  deterministic error), recovery pauses and waits for a manual reload
+
 ### Added
 
 - **Gaming category** — Polygon, The Verge Games, IGN, GameSpot, Eurogamer

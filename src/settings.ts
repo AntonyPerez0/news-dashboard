@@ -7,12 +7,6 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto'
 };
 
-/** Daytime window for the "auto" theme: light between 7:00 and 19:00 local. */
-export function isDaytime(date = new Date()): boolean {
-  const hour = date.getHours();
-  return hour >= 7 && hour < 19;
-}
-
 export const CYCLE_OPTIONS: { label: string; value: number }[] = [
   { label: '12s', value: 12_000 },
   { label: '18s', value: 18_000 },
