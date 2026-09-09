@@ -9,4 +9,4 @@ export const BUILD_DATE = __BUILD_DATE__;
 
 export const APP_NAME = 'News Dashboard';
 export const REPO_URL = 'https://github.com/AntonyPerez0/news-dashboard';
-export const LIVE_URL = 'https://antonyperez0.github.io/news-dashboard/';
+export const LIVE_URL = 'https://newsdash.page/';

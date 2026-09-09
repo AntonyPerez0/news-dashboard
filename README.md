@@ -10,7 +10,7 @@ A live news dashboard built for a second monitor. Ten categories of headlines
 cycle continuously through a grid of rich tiles — photos, excerpts, source
 logos — so the news stays glanceable without ever touching a scrollbar.
 
-**Live:** [antonyperez0.github.io/news-dashboard](https://antonyperez0.github.io/news-dashboard/)
+**Live:** [newsdash.page](https://newsdash.page/)
 
 ![News Dashboard — live headline grid](docs/screenshot.jpg)
 
