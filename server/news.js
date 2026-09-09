@@ -393,8 +393,8 @@ export function titleTokens(title) {
 }
 
 /** True when two headlines describe the same story: ≥85% token containment
- *  and every number-bearing token matches exactly (so different scores or
- *  amounts never merge). Short headlines skip the fuzzy check. */
+ *  and no conflicting numbers — different scores or amounts ($45m vs $120m)
+ *  never merge, but a headline that omits the year entirely still can. */
 export function areNearDuplicates(aTitle, bTitle) {
   const a = titleTokens(aTitle);
   const b = titleTokens(bTitle);
@@ -402,8 +402,10 @@ export function areNearDuplicates(aTitle, bTitle) {
 
   const setA = new Set(a);
   const setB = new Set(b);
-  for (const token of setA) {
-    if (/\d/.test(token) && !setB.has(token)) return false;
+  const numsA = [...setA].filter((token) => /\d/.test(token));
+  const numsB = [...setB].filter((token) => /\d/.test(token));
+  if (numsA.length && numsB.length && !numsA.some((token) => setB.has(token))) {
+    return false;
   }
 
   let shared = 0;

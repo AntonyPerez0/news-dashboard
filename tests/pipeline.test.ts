@@ -19,9 +19,15 @@ describe('near-duplicate collapsing', () => {
     expect(areNearDuplicates(livA, livB)).toBe(true);
   });
 
-  it('never merges stories with different numbers (scores, amounts)', () => {
+  it('never merges stories with conflicting numbers (scores, amounts)', () => {
     const other = 'LIV files for bankruptcy protection with over $120m owed to players';
     expect(areNearDuplicates(livA, other)).toBe(false);
+  });
+
+  it('merges when one headline omits the number entirely (year in slug)', () => {
+    const a = 'US Open 2026 results: Sabalenka fights back against Noskova to keep title defence alive';
+    const b = 'Sabalenka fights back to keep US Open defence alive';
+    expect(areNearDuplicates(a, b)).toBe(true);
   });
 
   it('keeps genuinely different headlines', () => {
