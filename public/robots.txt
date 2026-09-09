@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://antonyperez0.github.io/news-dashboard/sitemap.xml
