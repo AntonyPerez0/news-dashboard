@@ -122,7 +122,7 @@ scheduled workflows after 60 days without repository activity.
 Frequent runs stay cheap for publishers because the scraper's results are
 published with the site (`data/page-cache.json`) and the next run starts
 from them: a run fetches only the article pages of stories that are new,
-about a dozen instead of several hundred.
+a few dozen instead of several hundred.
 
 When the data is older than 45 minutes the header says so ("stale · updated
 4h"). If that happens, the Worker's cron events in the Cloudflare dashboard

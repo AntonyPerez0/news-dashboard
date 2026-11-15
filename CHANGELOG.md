@@ -10,8 +10,14 @@
   refreshes a day to data at most about half an hour old
 - **Page cache carried between builds** — the scraper's results are
   published as `data/page-cache.json` and seed the next run, which then
-  fetches only new stories' pages: 13 instead of 688 in a back-to-back test,
-  and the data step drops from 72 s to 7 s
+  fetches only new stories' pages: 57 instead of 690 between the first two
+  live runs, 15 minutes apart, with the data step down from 81 s to 42 s
+
+### Changed
+
+- The deploy workflow no longer has a `schedule:` trigger: GitHub ran it
+  every 3 to 10 hours and disables scheduled workflows after 60 days
+  without repository activity
 
 ## [2.4.0] — 2026-11-14
 
