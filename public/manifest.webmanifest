@@ -1,7 +1,7 @@
 {
   "name": "News Dashboard — ambient live headlines",
   "short_name": "NewsDash",
-  "description": "Ten categories of live news cycling through a glanceable tile grid. Photos, excerpts, source logos — zero scrolling.",
+  "description": "Eleven categories of live news cycling through a glanceable tile grid. Photos, excerpts, source logos — zero scrolling.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

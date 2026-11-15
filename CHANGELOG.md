@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.4.0] — 2026-11-14
+
+### Added
+
+- **WoW: Forever category** — Blizzard's own posts (read through Google
+  News, since Blizzard publishes no RSS), Wowhead's Forever feed, Massively
+  Overpowered, MMO-Champion, Blizzard Watch and a Google News search for the
+  wider press. Seven-day window; `-` is its shortcut key
+- **Feed options** `match`, `exclude`, `trim` and `official` for
+  single-subject categories, in `server/feeds.js` and in `NEWS_FEEDS_FILE`
+- `-` and `=` switch to an 11th and 12th category
+
+### Fixed
+
+- **Headlines cut short and credited to a date or a subtitle** — "Hotfixes -
+  November 11, 2026 - Blizzard News" became the headline "Hotfixes" from the
+  source "November 11, 2026". Only a repeat of the same outlet is now
+  stripped as a second suffix; an outlet's own "— Site Name" tail is removed
+- **Lowercase one-word outlets** ("space4games") left in the headline with
+  the source shown as "Google News"
+- **Photos missing for pages served with a 3xx status** — Blizzard's hotfix
+  posts arrive as HTTP 307 with the full page
+- An outlet's index page appearing as a story ("Blizzard News")
+
 ## [2.3.0] — 2026-11-14
 
 ### Added

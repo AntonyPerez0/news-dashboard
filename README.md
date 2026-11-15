@@ -6,7 +6,7 @@
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Tested](https://img.shields.io/badge/tests-Vitest-3FB950)](#testing)
 
-A live news dashboard built for a second monitor. Ten categories of headlines
+A live news dashboard built for a second monitor. Eleven categories of headlines
 cycle continuously through a grid of rich tiles — photos, excerpts, source
 logos — so the news stays glanceable without ever touching a scrollbar.
 
@@ -45,10 +45,12 @@ inconsistent third-party data, with zero API keys and zero server costs.
 - **Built to be left alone** — a running tab notices a new deploy and
   reloads itself, categories can rotate on a timer, the screen can be kept
   awake, and a whole setup fits in the URL for kiosk displays
-- **10 categories, 20+ feeds** — Headlines, World, Business, Technology,
-  Sports, CS Esports, Gaming, Science, Health, Entertainment, aggregated from
+- **11 categories, 30+ feeds** — Headlines, World, Business, Technology,
+  Sports, Gaming, CS Esports, Science, Health, Entertainment, aggregated from
   BBC, NPR, Al Jazeera, The Verge, Ars Technica, ESPN, HLTV, Polygon, IGN,
-  GameSpot, Eurogamer and more
+  GameSpot, Eurogamer and more — plus a single-game tab, WoW: Forever, that
+  pairs Blizzard's own posts with Wowhead, MMO-Champion, Massively
+  Overpowered, Blizzard Watch and the wider press
 - **Quality gates** — Vitest tests over the data pipeline, the tile engine
   and the polling hook, plus a strict `tsc` typecheck, all wired into CI on
   every push
@@ -137,7 +139,7 @@ npm run dev:server    # Express with hot reload
 npm run test:watch    # vitest watch mode
 ```
 
-Keyboard: `F` fullscreen · `Space` pause/resume · `1`–`9`, `0` categories ·
+Keyboard: `F` fullscreen · `Space` pause/resume · `1`–`9`, `0`, `-` categories ·
 `Enter` open focused story · `Esc` close settings
 
 ## Kiosk setup
@@ -164,7 +166,8 @@ page is reloaded.
 
 ## Adding feeds
 
-Registry lives in [`server/feeds.js`](server/feeds.js):
+Registry lives in [`server/feeds.js`](server/feeds.js); the tabs appear in
+the order the categories are listed there:
 
 ```js
 gaming: {
@@ -217,6 +220,19 @@ shorthand that follows `NEWS_EDITION`: `googleTop`, `googleTopic` (`WORLD`,
 `HEALTH`) or `googleSearch`. `maxAgeDays` overrides the three-day cut-off for
 a slow category. A file with a mistake stops the server at startup with the
 path of the bad entry.
+
+For a tab about one subject — the built-in WoW: Forever category in
+[`server/feeds.js`](server/feeds.js) is the worked example — any feed can
+also take:
+
+| Option | Example | Effect |
+| --- | --- | --- |
+| `match` | `"\\bforever\\b"` | keep only headlines matching the pattern (a general feed narrowed to one topic) |
+| `exclude` | `"\\bguide\\b"` | drop headlines matching the pattern |
+| `trim` | `[" — World of Warcraft"]` | endings to remove from headlines |
+| `official` | `true`, or `"^Blizzard"` | the publisher's own feed: its copy of a story is kept over a repost. A pattern picks the publisher out of a mixed search feed by source name |
+
+Patterns are case-insensitive regular expressions.
 
 On a fork deployed to GitHub Pages, set both as repository variables
 (Settings → Secrets and variables → Actions → Variables), with
