@@ -1,6 +1,11 @@
-# Deploys the React dashboard to GitHub Pages and keeps the static news data
-# fresh. Runs on every push, on demand, and every 15 minutes so headlines and
-# article photos stay current.
+# Deploys the React dashboard to GitHub Pages and refreshes the static news
+# data. Runs on every push, on demand, and on a schedule.
+#
+# The schedule asks for every 15 minutes, but GitHub runs scheduled workflows
+# on a best-effort basis: in practice this one has run a few times a day, 3 to
+# 10 hours apart. GitHub also disables the schedule after 60 days without
+# repository activity; any commit resets that, and `gh workflow enable
+# deploy.yml` turns it back on.
 
 name: Deploy to GitHub Pages
 

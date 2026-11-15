@@ -66,7 +66,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static news snapshots: network-first (they change every 15 min).
+  // Static news snapshots: network-first (they change on every deploy).
   if (url.pathname.includes('/data/')) {
     event.respondWith(networkFirst(event.request, DATA_CACHE));
     return;

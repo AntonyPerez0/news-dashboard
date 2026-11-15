@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.2.1] — 2026-11-14
+
+### Fixed
+
+- **Old data shown as current** — the status dot went by when the browser
+  last fetched successfully, so a frozen week-old snapshot read as a healthy
+  "updated 6d". Staleness now goes by the data's own timestamp (older than
+  45 minutes), the label reads "stale · updated 6d", and on narrow windows
+  a stale or failing feed keeps its dot instead of disappearing
+- **One broken photo disabled photos for the whole tile** — the failure was
+  remembered per tile, not per photo, so the tile showed monograms until a
+  category switch or reload. It now applies only to the photo that failed
+- **Whole grid cutting at once on every poll** — each refresh re-committed
+  every tile without a fade and restarted the stagger, even when the feed
+  was unchanged. Tiles now keep the story on screen and their own schedule,
+  and pick up a newly scraped photo or excerpt in place
+- `npm ci` failing on npm 11 (lockfile was missing an optional esbuild entry)
+- README and deploy workflow claimed 15-minute refreshes; GitHub actually
+  runs the schedule a few times a day and disables it after 60 days without
+  repository activity. Both now say so
+- Duplicate OpenGraph/Twitter tags in `index.html`
+
+### Changed
+
+- Toolchain: Vite 5 → 8, Vitest 2 → 5, Express patched to 4.22.3;
+  `npm audit` is clean. Development now needs Node 22.12 or newer
+- Component tests (jsdom + Testing Library) for the tile engine, the polling
+  hook and the header status
+
 ## [2.2.0] — 2026-09-08
 
 ### Added
