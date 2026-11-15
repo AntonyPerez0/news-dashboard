@@ -87,6 +87,7 @@ if (ok === 0) {
 // are dropped, which keeps the file from growing.
 await fs.writeFile(path.join(distData, 'page-cache.json'), JSON.stringify(exportPageCache(links)));
 console.log(`article pages: ${scrapeStats.fetched} fetched, ${scrapeStats.cached} answered from the cache`);
+console.log(`photo searches: ${scrapeStats.searched} made, ${scrapeStats.found} found a photo`);
 
 console.log(`dist/data ready with ${ok}/${Object.keys(CATEGORIES).length} categories in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 // rss-parser / undici can keep sockets alive; exit explicitly once written.
