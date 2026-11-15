@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, timeAgo } from '../src/utils.js';
+import { STALE_MS } from '../src/config.js';
+import { computeLayout, isStale, timeAgo } from '../src/utils.js';
 import { isDaytime, resolveTheme } from '../src/theme.js';
 
 describe('computeLayout', () => {
@@ -32,6 +33,21 @@ describe('timeAgo', () => {
 
   it('handles missing timestamps', () => {
     expect(timeAgo(0)).toBe('');
+  });
+});
+
+describe('isStale', () => {
+  const now = Date.UTC(2026, 10, 14, 12);
+
+  it('goes by the age of the data', () => {
+    expect(isStale(now - 5 * 60_000, now)).toBe(false);
+    expect(isStale(now - STALE_MS + 1000, now)).toBe(false);
+    expect(isStale(now - STALE_MS - 1000, now)).toBe(true);
+    expect(isStale(now - 7 * 24 * 60 * 60_000, now)).toBe(true);
+  });
+
+  it('treats a missing timestamp as stale', () => {
+    expect(isStale(0, now)).toBe(true);
   });
 });
 

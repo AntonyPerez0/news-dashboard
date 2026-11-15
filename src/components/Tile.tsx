@@ -33,7 +33,10 @@ export function Tile({
 }: TileProps) {
   const [current, setCurrent] = useState<NewsItem | null>(null);
   const [swapping, setSwapping] = useState(false);
-  const [imgState, setImgState] = useState<'idle' | 'loaded' | 'failed'>('idle');
+  const [imgLoaded, setImgLoaded] = useState(false);
+  // The failure belongs to one photo URL, not to the tile: the next story
+  // gets its photo back.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const runtime = useRef<TileRuntime>({ pointer: 0, nextSwapAt: 0, paused: false, cycleMs });
   const assignedList = useRef<NewsItem[] | null>(null);
   const listRef = useRef(list);
@@ -48,19 +51,35 @@ export function Tile({
   gridPausedRef.current = gridPaused;
   runtime.current.cycleMs = cycleMs;
 
-  // New stride list (first load or refresh): commit content without the
-  // swap animation, keeping the pointer so fresh stories flow in naturally.
+  // New stride list (first load or refresh).
   useEffect(() => {
     if (assignedList.current === list) return; // StrictMode double-invoke guard
     assignedList.current = list;
     const state = runtime.current;
     if (!list.length) return;
-    if (state.pointer >= list.length || state.pointer < 0) state.pointer = 0;
-    const had = currentRef.current !== null;
-    const item = had ? list[state.pointer % list.length] : list[0];
-    if (!item) return;
-    state.pointer = had ? state.pointer + 1 : 1;
-    setCurrent(item);
+
+    const shown = currentRef.current;
+    if (shown) {
+      // Refresh: the story on screen stays and the swap schedule is left
+      // alone, so a poll never makes the whole grid cut at once. If the
+      // story is still in the list, adopt its fresh copy (enrichment may
+      // have added a photo or excerpt) and carry on from its position.
+      const at = list.findIndex((item) => item.link === shown.link);
+      const fresh = list[at];
+      if (fresh) {
+        state.pointer = at + 1;
+        setCurrent(fresh);
+      } else if (state.pointer >= list.length) {
+        state.pointer = 0;
+      }
+      return;
+    }
+
+    // First load: commit without the swap animation and stagger the tiles.
+    const first = list[0];
+    if (!first) return;
+    state.pointer = 1;
+    setCurrent(first);
     state.nextSwapAt = performance.now() + index * (CYCLE_MS / total);
   }, [list, index, total]);
 
@@ -78,7 +97,7 @@ export function Tile({
     state.nextSwapAt = now + state.cycleMs;
     const item = listRef.current[state.pointer % Math.max(1, listRef.current.length)];
     state.pointer++;
-    if (!item || item === currentRef.current) return;
+    if (!item || item.link === currentRef.current?.link) return;
 
     const commit = once(() => {
       setSwapping(true);
@@ -129,7 +148,7 @@ export function Tile({
   }, [index, register]);
 
   const item = current;
-  const hasImage = !!item?.image && imgState !== 'failed';
+  const image = item?.image && item.image !== failedSrc ? item.image : null;
   const monogram = (item?.source || '?').trim().charAt(0).toUpperCase() || '?';
   const host = item ? siteHostOf(item) : null;
   const isNew = !!item && Date.now() - item.publishedAt < FRESH_MS;
@@ -137,7 +156,7 @@ export function Tile({
   const classes = [
     'tile',
     loading || !item ? 'loading' : '',
-    hasImage ? '' : 'no-img',
+    image ? '' : 'no-img',
     item?.snippet ? '' : 'no-snippet',
     isNew ? 'fresh' : ''
   ]
@@ -171,16 +190,16 @@ export function Tile({
     >
       <div className={swapping ? 'tile-inner swap' : 'tile-inner'}>
         <div className="tile-media">
-          {hasImage && item?.image && (
+          {image && (
             <img
-              className={imgState === 'loaded' ? 'tile-img loaded' : 'tile-img'}
-              src={item.image}
+              className={imgLoaded ? 'tile-img loaded' : 'tile-img'}
+              src={image}
               alt=""
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
-              onLoad={() => setImgState('loaded')}
-              onError={() => setImgState('failed')}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setFailedSrc(image)}
             />
           )}
           <span className="tile-mono">{monogram}</span>

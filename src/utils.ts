@@ -1,3 +1,5 @@
+import { STALE_MS } from './config';
+
 export function timeAgo(ts: number): string {
   if (!ts) return '';
   const seconds = Math.max(0, (Date.now() - ts) / 1000);
@@ -7,6 +9,13 @@ export function timeAgo(ts: number): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h`;
   return `${Math.floor(hours / 24)}d`;
+}
+
+/** True when a snapshot is too old to call current. Judged by the data's own
+ *  timestamp, not by when the browser last fetched it — a successful fetch
+ *  of a week-old snapshot is still stale. */
+export function isStale(fetchedAt: number, now = Date.now()): boolean {
+  return now - fetchedAt > STALE_MS;
 }
 
 export function once(fn: () => void): () => void {

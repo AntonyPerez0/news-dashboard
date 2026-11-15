@@ -24,7 +24,9 @@ const STATUS_LABEL: Record<FeedStatus, string> = {
 export function Header({
   categories, active, onSelect, status, fetchedAt, paused, time, date, onToggleFullscreen, onOpenSettings
 }: HeaderProps) {
-  const label = status === 'ok' && fetchedAt ? `updated ${timeAgo(fetchedAt)}` : STATUS_LABEL[status];
+  const age = fetchedAt ? `updated ${timeAgo(fetchedAt)}` : '';
+  const label =
+    status === 'ok' ? age : status === 'stale' && age ? `stale · ${age}` : STATUS_LABEL[status];
 
   return (
     <header>
@@ -55,7 +57,7 @@ export function Header({
         <span id="pause-chip" className={paused ? 'chip' : 'chip hidden'}>
           PAUSED
         </span>
-        <span id="updated" className={status} title="Last successful update">
+        <span id="updated" className={status} title="Age of the news data">
           <span>{label}</span>
         </span>
         <span id="date">{date}</span>

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadNews } from '../api';
-import { REFRESH_MS, STALE_MS } from '../config';
+import { REFRESH_MS } from '../config';
 import type { FeedStatus, NewsItem } from '../types';
+import { isStale } from '../utils';
 
 interface NewsState {
   items: NewsItem[];
@@ -13,7 +14,8 @@ interface NewsState {
 /**
  * Polls the news feed for a category. Uses the live API when reachable and
  * the static GitHub Pages snapshots otherwise; re-polls on category change
- * and on tab re-focus after going stale.
+ * and on tab re-focus. Status is `stale` whenever the data itself is old,
+ * even if the fetch that delivered it succeeded.
  */
 export function useNews(category: string): NewsState & { refresh: () => void } {
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -33,7 +35,7 @@ export function useNews(category: string): NewsState & { refresh: () => void } {
       lastOkRef.current = Date.now();
       setItems(data.items);
       setFetchedAt(data.fetchedAt);
-      setStatus(data.items.length ? 'ok' : 'error');
+      setStatus(data.items.length ? (isStale(data.fetchedAt) ? 'stale' : 'ok') : 'error');
       setError(data.items.length ? '' : 'no stories available');
       // Photos are scraped in the background after headlines arrive — grab
       // them with one quick follow-up poll instead of waiting 5 minutes.
@@ -63,12 +65,10 @@ export function useNews(category: string): NewsState & { refresh: () => void } {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (status === 'ok' && lastOkRef.current && Date.now() - lastOkRef.current > STALE_MS) {
-        setStatus('stale');
-      }
+      if (status === 'ok' && isStale(fetchedAt)) setStatus('stale');
     }, 30_000);
     return () => clearInterval(id);
-  }, [status]);
+  }, [status, fetchedAt]);
 
   useEffect(() => {
     const onVisible = () => {

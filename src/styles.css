@@ -557,6 +557,9 @@ header {
 /* keep the top bar a single slim row on side monitors */
 @media (max-width: 1420px) {
   #updated { display: none; }
+  /* a problem stays visible as a bare dot; only the text is dropped */
+  #updated.stale, #updated.error { display: flex; }
+  #updated.stale span, #updated.error span { display: none; }
 }
 
 @media (max-width: 1240px) {
