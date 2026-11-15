@@ -1,9 +1,16 @@
 /**
  * Service worker — caching strategy per resource type:
  *
- *   app shell (HTML/CSS/JS/fonts/icons)
+ *   the page itself (navigations)
+ *     → network-first with cache fallback: a reload after a deploy gets the
+ *       new build straight away; the cached copy only serves offline
+ *
+ *   app shell assets (CSS/JS/fonts/icons)
  *     → cache-first: immutable between deploys (hashed filenames), instant
  *       boots, works offline
+ *
+ *   version.json
+ *     → never intercepted: the update check has to see the network
  *
  *   news data (data/*.json, /api/*)
  *     → network-first with cache fallback: fresh headlines when online, last
@@ -72,7 +79,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell: cache-first (hashed filenames are immutable per deploy).
+  // Build identity for the update check: always from the network.
+  if (url.pathname.endsWith('/version.json')) return;
+
+  // The page: network-first, so a deploy shows up on the next reload.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(networkFirst(event.request, SHELL_CACHE, { ignoreSearch: true }));
+    return;
+  }
+
+  // App shell assets: cache-first (hashed filenames are immutable per deploy).
   event.respondWith(cacheFirst(event.request, SHELL_CACHE));
 });
 
@@ -88,14 +104,15 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
-async function networkFirst(request, cacheName) {
+async function networkFirst(request, cacheName, matchOptions) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
     if (response.ok) cache.put(request, response.clone());
     return response;
   } catch {
-    const cached = await cache.match(request);
+    // matchOptions: the page is the same document whatever its ?query says.
+    const cached = await cache.match(request, matchOptions);
     if (cached) {
       // Stale-but-serviceable: flag it so the UI can show an offline banner.
       const headers = new Headers(cached.headers);

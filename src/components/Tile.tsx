@@ -43,7 +43,7 @@ export function Tile({
   const currentRef = useRef(current);
   const gridPausedRef = useRef(gridPaused);
   const barRef = useRef<HTMLDivElement>(null);
-  const tileRef = useRef<HTMLElement>(null);
+  const tileRef = useRef<HTMLAnchorElement>(null);
   const tickRef = useRef<(now: number) => void>(() => {});
 
   listRef.current = list;
@@ -163,17 +163,15 @@ export function Tile({
     .filter(Boolean)
     .join(' ');
 
-  const open = () => {
-    if (current?.link) window.open(current.link, '_blank', 'noopener');
-  };
-
+  // A real link, so middle-click, "open in new tab" and "copy link" work.
   return (
-    <article
+    <a
       ref={tileRef}
       className={classes}
       style={{ '--accent': accent } as React.CSSProperties}
-      role="button"
-      tabIndex={0}
+      href={item?.link || undefined}
+      target="_blank"
+      rel="noopener"
       aria-label={item ? `${item.source}: ${item.title}` : 'Loading story'}
       data-tick={timeTick}
       onMouseEnter={() => {
@@ -182,10 +180,6 @@ export function Tile({
       onMouseLeave={() => {
         runtime.current.paused = false;
         runtime.current.nextSwapAt = performance.now() + 1200;
-      }}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') open();
       }}
     >
       <div className={swapping ? 'tile-inner swap' : 'tile-inner'}>
@@ -213,6 +207,7 @@ export function Tile({
                   src={faviconUrl(host)}
                   alt=""
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -232,6 +227,6 @@ export function Tile({
         </div>
       </div>
       <div className="tile-progress" ref={barRef} />
-    </article>
+    </a>
   );
 }

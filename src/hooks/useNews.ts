@@ -11,6 +11,8 @@ interface NewsState {
   error: string;
 }
 
+const NO_ITEMS: NewsItem[] = [];
+
 /**
  * Polls the news feed for a category. Uses the live API when reachable and
  * the static GitHub Pages snapshots otherwise; re-polls on category change
@@ -18,7 +20,10 @@ interface NewsState {
  * even if the fetch that delivered it succeeded.
  */
 export function useNews(category: string): NewsState & { refresh: () => void } {
-  const [items, setItems] = useState<NewsItem[]>([]);
+  const [items, setItems] = useState<NewsItem[]>(NO_ITEMS);
+  // Which category the state below belongs to. On a switch there is one
+  // render where it still holds the previous category's stories.
+  const [loadedFor, setLoadedFor] = useState(category);
   const [status, setStatus] = useState<FeedStatus>('loading');
   const [fetchedAt, setFetchedAt] = useState(0);
   const [error, setError] = useState('');
@@ -53,7 +58,8 @@ export function useNews(category: string): NewsState & { refresh: () => void } {
   }, []);
 
   useEffect(() => {
-    setItems([]);
+    setItems(NO_ITEMS);
+    setLoadedFor(category);
     setStatus('loading');
     load();
     const id = setInterval(load, REFRESH_MS);
@@ -80,5 +86,10 @@ export function useNews(category: string): NewsState & { refresh: () => void } {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
+  // Never hand out another category's stories: until this category's own
+  // state is in place, it is simply loading.
+  if (loadedFor !== category) {
+    return { items: NO_ITEMS, status: 'loading', fetchedAt: 0, error: '', refresh: load };
+  }
   return { items, status, fetchedAt, error, refresh: load };
 }

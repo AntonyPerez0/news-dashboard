@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CATEGORIES, loadCategories } from './api';
 import { Header } from './components/Header';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -7,25 +7,64 @@ import { TileGrid } from './components/TileGrid';
 import { Toast } from './components/Toast';
 import { useClock } from './hooks/useClock';
 import { useNews } from './hooks/useNews';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
+import { useWakeLock } from './hooks/useWakeLock';
+import { categoryFromUrl, DEFAULT_SETTINGS, loadSettings, saveSettings, settingsFromUrl } from './settings';
 import { applyTheme, resolveTheme } from './theme';
 import type { Settings } from './types';
+import { nextCategory } from './utils';
 
 export default function App() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [category, setCategory] = useState(
-    () => localStorage.getItem('nd.category') || 'headlines'
+    () => categoryFromUrl(window.location.search) || localStorage.getItem('nd.category') || 'headlines'
   );
   const [allPaused, setAllPaused] = useState(false);
-  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [saved, setSaved] = useState<Settings>(() => loadSettings());
+  // Settings pinned by the URL (?speed=30&rotate=5…) win over the saved ones
+  // until the user changes that setting by hand; they are never saved.
+  const [pinned, setPinned] = useState<Partial<Settings>>(() => settingsFromUrl(window.location.search));
+  const settings = useMemo<Settings>(() => ({ ...saved, ...pinned }), [saved, pinned]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timeTick, setTimeTick] = useState(0);
   const { items, status, fetchedAt, error } = useNews(category);
   const { time, date } = useClock();
+  useWakeLock(settings.keepAwake);
 
   useEffect(() => {
-    loadCategories().then(setCategories);
+    loadCategories().then((list) => {
+      setCategories(list);
+      setCategoriesLoaded(true);
+    });
   }, []);
+
+  // A category from the URL or a previous visit may not exist on this server.
+  useEffect(() => {
+    const first = categories[0];
+    if (categoriesLoaded && first && !categories.some((cat) => cat.key === category)) {
+      setCategory(first.key);
+    }
+  }, [categoriesLoaded, categories, category]);
+
+  // Category rotation. Timestamp-driven like the tiles: the next switch is a
+  // moment in time checked on a heartbeat, so a throttled tab catches up
+  // instead of stalling. A manual category change, a pause or a visit to
+  // the settings starts a full interval afresh.
+  const rotateAt = useRef(0);
+  const rotateMs = settings.rotateMin * 60_000;
+  useEffect(() => {
+    rotateAt.current = rotateMs > 0 ? Date.now() + rotateMs : 0;
+  }, [rotateMs, category, allPaused, settingsOpen]);
+  useEffect(() => {
+    if (!rotateMs || allPaused || settingsOpen) return;
+    const id = setInterval(() => {
+      if (!rotateAt.current || Date.now() < rotateAt.current) return;
+      if (document.querySelector('.tile:hover')) return; // someone is reading
+      rotateAt.current = Date.now() + rotateMs; // before the render, so one due time means one switch
+      setCategory((current) => nextCategory(categories, current));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [rotateMs, allPaused, settingsOpen, categories]);
 
   useEffect(() => {
     const id = setInterval(() => setTimeTick((t) => t + 1), 60_000);
@@ -46,16 +85,22 @@ export default function App() {
   }, [settings.theme]);
 
   const changeSettings = useCallback((patch: Partial<Settings>) => {
-    setSettings((prev) => {
+    setSaved((prev) => {
       const next = { ...prev, ...patch };
       saveSettings(next);
+      return next;
+    });
+    setPinned((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(patch) as (keyof Settings)[]) delete next[key];
       return next;
     });
   }, []);
 
   const resetSettings = useCallback(() => {
-    setSettings({ ...DEFAULT_SETTINGS });
+    setSaved({ ...DEFAULT_SETTINGS });
     saveSettings({ ...DEFAULT_SETTINGS });
+    setPinned({});
   }, []);
 
   const selectCategory = useCallback((key: string) => {
@@ -73,11 +118,16 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const key = e.key.toLowerCase();
-      if (key === 'escape') {
-        setSettingsOpen(false);
-      } else if (key === 'f') {
+      // While the settings are open the keyboard belongs to them: Space and
+      // Enter work their controls, only Escape reaches the dashboard.
+      if (settingsOpen) {
+        if (key === 'escape') setSettingsOpen(false);
+        return;
+      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (key === 'f') {
         toggleFullscreen();
       } else if (key === ' ' || e.code === 'Space') {
         e.preventDefault();
@@ -90,7 +140,7 @@ export default function App() {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [categories, selectCategory, toggleFullscreen]);
+  }, [categories, selectCategory, settingsOpen, toggleFullscreen]);
 
   const toastMessage = error
     ? items.length

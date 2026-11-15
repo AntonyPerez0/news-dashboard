@@ -30,4 +30,8 @@ export interface Settings {
   showSnippets: boolean;
   showImages: boolean;
   theme: ThemeSetting;
+  /** Minutes on each category before moving to the next; 0 = stay put. */
+  rotateMin: number;
+  /** Ask the browser to keep the screen from sleeping while visible. */
+  keepAwake: boolean;
 }

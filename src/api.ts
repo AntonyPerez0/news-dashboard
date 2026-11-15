@@ -29,13 +29,23 @@ export async function loadNews(category: string): Promise<NewsData> {
   return (await res.json()) as NewsData;
 }
 
+/** The server's category list: the live API, else the list the static build
+ *  wrote next to the snapshots, else the built-in defaults. */
 export async function loadCategories(): Promise<Category[]> {
-  try {
-    const res = await fetch('api/categories');
-    if (!res.ok) return DEFAULT_CATEGORIES;
-    const data = (await res.json()) as Category[];
-    return Array.isArray(data) && data.length ? data : DEFAULT_CATEGORIES;
-  } catch {
-    return DEFAULT_CATEGORIES; // GitHub Pages mode
+  for (const url of ['api/categories', 'data/categories.json']) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data: unknown = await res.json();
+      if (Array.isArray(data) && data.length && data.every(isCategory)) return data;
+    } catch {
+      /* not there (or not JSON) — try the next source */
+    }
   }
+  return DEFAULT_CATEGORIES;
+}
+
+function isCategory(value: unknown): value is Category {
+  const cat = value as Category | null;
+  return typeof cat?.key === 'string' && typeof cat.label === 'string';
 }

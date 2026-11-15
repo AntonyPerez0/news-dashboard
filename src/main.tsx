@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/newsreader';
 import './styles.css';
+import { startUpdateChecks } from './update';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,9 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>
 );
+
+// A display left running for weeks still picks up new deploys.
+if (import.meta.env.PROD) startUpdateChecks();
 
 // PWA: register the service worker for offline support (production only).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

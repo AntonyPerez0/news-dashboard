@@ -282,6 +282,8 @@ header {
   background: var(--card);
   overflow: hidden;
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
@@ -618,14 +620,21 @@ header {
   border-left: 1px solid var(--border);
   box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
   transform: translateX(105%);
-  transition: transform 0.25s ease;
+  /* hidden, not just off-screen: a closed drawer takes no keyboard focus.
+     The delay lets the slide-out finish before it disappears. */
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
   z-index: 21;
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
 }
 
-.drawer.open { transform: none; }
+.drawer.open {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
 
 .drawer-head {
   display: flex;
@@ -691,6 +700,13 @@ header {
 }
 
 .about-note { font-size: 12px; color: var(--faint); text-align: right; }
+
+.about-fine {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--faint);
+}
 
 .about-links {
   display: flex;

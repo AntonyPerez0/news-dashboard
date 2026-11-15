@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STALE_MS } from '../src/config.js';
-import { computeLayout, isStale, timeAgo } from '../src/utils.js';
+import { categoryFromUrl, settingsFromUrl } from '../src/settings.js';
+import { computeLayout, isStale, nextCategory, timeAgo } from '../src/utils.js';
 import { isDaytime, resolveTheme } from '../src/theme.js';
 
 describe('computeLayout', () => {
@@ -48,6 +49,58 @@ describe('isStale', () => {
 
   it('treats a missing timestamp as stale', () => {
     expect(isStale(0, now)).toBe(true);
+  });
+});
+
+describe('nextCategory', () => {
+  const cats = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
+
+  it('steps through the list and wraps', () => {
+    expect(nextCategory(cats, 'a')).toBe('b');
+    expect(nextCategory(cats, 'c')).toBe('a');
+  });
+
+  it('starts from the top when the current one is gone', () => {
+    expect(nextCategory(cats, 'zzz')).toBe('a');
+  });
+
+  it('stays put with nothing to rotate through', () => {
+    expect(nextCategory([], 'a')).toBe('a');
+    expect(nextCategory([{ key: 'a' }], 'a')).toBe('a');
+  });
+});
+
+describe('settings from the URL', () => {
+  it('reads a kiosk setup', () => {
+    expect(settingsFromUrl('?speed=30&rotate=5&excerpts=0&photos=off&awake=1')).toEqual({
+      cycleMs: 30_000,
+      rotateMin: 5,
+      showSnippets: false,
+      showImages: false,
+      keepAwake: true
+    });
+  });
+
+  it('pins nothing that was not asked for', () => {
+    expect(settingsFromUrl('')).toEqual({});
+    expect(settingsFromUrl('?theme=dark&utm_source=x')).toEqual({});
+  });
+
+  it('ignores values it cannot use', () => {
+    expect(settingsFromUrl('?speed=fast&rotate=-3&photos=maybe&awake=')).toEqual({});
+    expect(settingsFromUrl('?speed=1')).toEqual({});
+    expect(settingsFromUrl('?speed=9000')).toEqual({});
+  });
+
+  it('turns rotation off with 0 or "off"', () => {
+    expect(settingsFromUrl('?rotate=0')).toEqual({ rotateMin: 0 });
+    expect(settingsFromUrl('?rotate=off')).toEqual({ rotateMin: 0 });
+  });
+
+  it('reads the opening category', () => {
+    expect(categoryFromUrl('?category=Technology')).toBe('technology');
+    expect(categoryFromUrl('?category=../etc')).toBeNull();
+    expect(categoryFromUrl('')).toBeNull();
   });
 });
 

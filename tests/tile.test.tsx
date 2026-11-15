@@ -65,6 +65,27 @@ describe('Tile photos', () => {
   });
 });
 
+describe('Tile link', () => {
+  it('is a real link to the story, opening in a new tab', () => {
+    const tile = mountTile([story('a')]);
+    const link = tile.container.querySelector('a.tile');
+    expect(link?.getAttribute('href')).toBe('https://example.com/a');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toBe('noopener');
+  });
+
+  it('follows the story on screen', () => {
+    const tile = mountTile([story('a'), story('b')]);
+    tile.swap();
+    expect(tile.container.querySelector('a.tile')?.getAttribute('href')).toBe('https://example.com/b');
+  });
+
+  it('is not a link while there is nothing to open', () => {
+    const tile = mountTile([]);
+    expect(tile.container.querySelector('.tile')?.hasAttribute('href')).toBe(false);
+  });
+});
+
 describe('Tile refresh', () => {
   it('keeps the story on screen when a poll delivers the same feed again', () => {
     const tile = mountTile([story('a'), story('b'), story('c')]);

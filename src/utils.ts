@@ -18,6 +18,13 @@ export function isStale(fetchedAt: number, now = Date.now()): boolean {
   return now - fetchedAt > STALE_MS;
 }
 
+/** The category after `current`, wrapping round; the first one when
+ *  `current` is not in the list. */
+export function nextCategory(categories: { key: string }[], current: string): string {
+  const at = categories.findIndex((cat) => cat.key === current);
+  return categories[(at + 1) % categories.length]?.key ?? current;
+}
+
 export function once(fn: () => void): () => void {
   let called = false;
   return () => {
