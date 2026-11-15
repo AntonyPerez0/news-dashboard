@@ -1,11 +1,11 @@
 {
   "name": "news-dashboard",
   "version": "2.2.0",
-  "description": "Ambient fullscreen news dashboard for a second monitor. React + TypeScript tiles that continuously cycle live headlines across 9 categories.",
+  "description": "Ambient fullscreen news dashboard for a second monitor. React + TypeScript tiles that continuously cycle live headlines across 10 categories.",
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "vite",
@@ -20,18 +20,21 @@
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/newsreader": "^5.3.0",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "google-news-url-decoder": "^1.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.9"
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }

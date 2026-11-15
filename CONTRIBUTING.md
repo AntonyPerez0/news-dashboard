@@ -9,7 +9,7 @@ dashboard — changes should respect its two hard constraints:
 ## Development setup
 
 ```bash
-nvm use              # or any Node >= 20
+nvm use              # or any Node >= 22.12
 npm install
 npm run dev          # vite dev server (proxies API to :3000)
 npm run dev:server   # in a second terminal: Express with hot reload
