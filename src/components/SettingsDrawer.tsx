@@ -151,6 +151,21 @@ export function SettingsDrawer({ open, settings, onChange, onReset, onClose }: S
               <span className="slider" />
             </label>
           </div>
+          <div className="switch-row">
+            <span>
+              Only stories with a photo
+              <span className="seg-note">some publishers block photo lookups</span>
+            </span>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={settings.photosOnly && settings.showImages}
+                disabled={!settings.showImages}
+                onChange={(e) => onChange({ photosOnly: e.target.checked })}
+              />
+              <span className="slider" />
+            </label>
+          </div>
         </section>
 
         <section>

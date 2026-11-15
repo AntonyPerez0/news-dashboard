@@ -88,7 +88,9 @@ describe('custom feeds file', () => {
   });
 
   it('falls back to the built-in categories', () => {
-    expect(Object.keys(loadCategories({}))).toHaveLength(11);
+    expect(Object.keys(loadCategories({}))).toEqual([
+      'headlines', 'world', 'technology', 'gaming', 'esports', 'wowforever'
+    ]);
   });
 
   it('reads the single-subject options', () => {

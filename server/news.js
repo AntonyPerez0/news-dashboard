@@ -255,7 +255,7 @@ const PAGE_CACHE_MAX = 5000; // ~3x the stories live at once; the server runs fo
 const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000;
 
 // How much scraping a run actually did, for the build log.
-export const scrapeStats = { cached: 0, fetched: 0 };
+export const scrapeStats = { cached: 0, fetched: 0, searched: 0, found: 0 };
 
 /** What the scraper knows about `links`, as plain data. The static build
  *  publishes this next to the news so the next run starts from it instead
@@ -287,7 +287,8 @@ export function importPageCache(entries) {
         image: image && /^https:\/\//i.test(image) ? image : null,
         description: text(entry.description),
         site: text(entry.site),
-        at: entry.at
+        at: entry.at,
+        ...(Number.isFinite(entry.searches) ? { searches: entry.searches, searchedAt: Number(entry.searchedAt) || 0 } : {})
       },
       PAGE_CACHE_MAX
     );
@@ -326,14 +327,37 @@ async function resolveArticleUrl(link) {
   return null;
 }
 
-const META_IMAGE_RE =
-  /<meta[^>]*(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image(?::src)?)["'][^>]*>/gi;
-const CONTENT_RE = /content=["']([^"']+)["']/i;
+/** The attributes of an HTML tag, names lower-cased. Read left to right so
+ *  that text inside one value is never taken for another attribute. Values
+ *  may be double-quoted, single-quoted or bare (`<meta property=og:image
+ *  content="…">`, as Gannett's sites write it). */
+function tagAttrs(tag) {
+  const attrs = {};
+  const inner = tag.replace(/^<\w+/, '').replace(/\/?>$/, '');
+  for (const [, name, dq, sq, bare] of inner.matchAll(
+    /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g
+  )) {
+    attrs[name.toLowerCase()] ??= dq ?? sq ?? bare ?? '';
+  }
+  return attrs;
+}
+
+/** `<meta>` tags as [key, content] pairs, key lower-cased. */
+function metaTags(html) {
+  const out = [];
+  for (const tag of html.match(/<meta\s[^>]*>/gi) || []) {
+    const attrs = tagAttrs(tag);
+    const key = attrs.property ?? attrs.name;
+    if (key && attrs.content) out.push([key.toLowerCase(), attrs.content]);
+  }
+  return out;
+}
+
+const META_IMAGE_KEY = /^(?:og:image(?::secure_url)?|twitter:image(?::src)?)$/;
 
 export function extractMetaImage(html, baseUrl) {
-  for (const tag of html.match(META_IMAGE_RE) || []) {
-    const content = CONTENT_RE.exec(tag)?.[1];
-    if (!content) continue;
+  for (const [key, content] of metaTags(html)) {
+    if (!META_IMAGE_KEY.test(key)) continue;
     let url = decodeEntities(content.trim());
     try {
       url = new URL(url, baseUrl).href; // resolves relative og:image paths
@@ -351,11 +375,7 @@ export function extractMetaImage(html, baseUrl) {
  *  then JSON-LD "description" (many sites only declare it there). */
 export function extractMetaDescription(html) {
   const byKey = {};
-  for (const tag of html.match(/<meta[^>]*>/gi) || []) {
-    const key = /(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase();
-    if (!key) continue;
-    const content = /content=["']([^"']+)["']/i.exec(tag)?.[1];
-    if (!content) continue;
+  for (const [key, content] of metaTags(html)) {
     if (key === 'og:description' && !byKey.og) byKey.og = content;
     else if (key === 'description' && !byKey.plain) byKey.plain = content;
     else if (key === 'twitter:description' && !byKey.twitter) byKey.twitter = content;
@@ -430,12 +450,68 @@ async function fetchPageHead(url, userAgent) {
   }
 }
 
-async function scrapePageMeta(link) {
+// ---------------------------------------------------------------------------
+// Photo search — the last resort for a story whose own page gave no photo.
+// Some publishers (AP, Reuters, WSJ…) refuse every automated request, but
+// their stories are syndicated, and Bing's news feed lists those copies with
+// a thumbnail. A result counts only if its headline is the same story's.
+// ---------------------------------------------------------------------------
+
+const PHOTO_SEARCH = 'https://www.bing.com/news/search';
+// A syndicated copy can take a while to appear, so a miss is retried: after
+// 30 min, 1 h, 2 h, 4 h, then no more.
+const SEARCH_RETRY_MS = 30 * 60 * 1000;
+const SEARCH_MAX_TRIES = 5;
+
+/** The photo a news-search feed offers for the story titled `title`, or
+ *  null. Exported for tests; `xml` is the feed as text. */
+export function pickSearchPhoto(xml, title) {
+  for (const [, block] of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+    const found = /<title>([\s\S]*?)<\/title>/.exec(block)?.[1];
+    const image = /<News:Image>([\s\S]*?)<\/News:Image>/.exec(block)?.[1];
+    if (!found || !image) continue;
+    if (!areNearDuplicates(decodeEntities(found), title)) continue;
+    const url = httpsify(decodeEntities(image.trim()));
+    if (/^https:\/\/www\.bing\.com\/th\?/.test(url)) return url;
+  }
+  return null;
+}
+
+async function searchPhoto(title) {
+  scrapeStats.searched++;
+  try {
+    const res = await fetch(`${PHOTO_SEARCH}?q=${encodeURIComponent(title)}&format=rss`, {
+      signal: AbortSignal.timeout(7000),
+      headers: { 'User-Agent': BOT_UA, Accept: 'application/rss+xml, application/xml, text/xml, */*' }
+    });
+    if (!res.ok) return null;
+    const photo = pickSearchPhoto(await res.text(), title);
+    if (photo) scrapeStats.found++;
+    return photo;
+  } catch {
+    return null; // timeout, blocked — the story simply stays without a photo
+  }
+}
+
+/** Whether a cached entry without a photo is due another search. */
+export function searchDue(entry, now = Date.now()) {
+  const tries = entry.searches || 0;
+  if (tries >= SEARCH_MAX_TRIES) return false;
+  return tries === 0 || now - (entry.searchedAt || 0) >= SEARCH_RETRY_MS * 2 ** (tries - 1);
+}
+
+async function scrapePageMeta(link, title) {
   const cached = PAGE_CACHE.get(link);
   if (cached) {
-    const fresh = cached.image || cached.description || Date.now() - cached.at < NEGATIVE_TTL_MS;
-    if (fresh) {
+    const pageFresh = cached.image || cached.description || Date.now() - cached.at < NEGATIVE_TTL_MS;
+    if (pageFresh) {
       scrapeStats.cached++;
+      // The page has been read; only the photo may still be worth looking for.
+      if (!cached.image && title && searchDue(cached)) {
+        cached.image = await searchPhoto(title);
+        cached.searches = (cached.searches || 0) + 1;
+        cached.searchedAt = Date.now();
+      }
       return cached;
     }
   }
@@ -461,6 +537,12 @@ async function scrapePageMeta(link) {
   }
 
   const out = { image, description, site, at: Date.now() };
+  if (cached?.searches) Object.assign(out, { searches: cached.searches, searchedAt: cached.searchedAt });
+  if (!out.image && title && searchDue(out)) {
+    out.image = await searchPhoto(title);
+    out.searches = (out.searches || 0) + 1;
+    out.searchedAt = Date.now();
+  }
   setBounded(PAGE_CACHE, link, out, PAGE_CACHE_MAX);
   return out;
 }
@@ -486,8 +568,12 @@ export async function enrichImages(items, { limit = 150, budgetMs = 30_000, conc
   if (!targets.length) return items;
 
   await mapLimit(targets, concurrency, async (item) => {
-    if (Date.now() > deadline) return;
-    const meta = await scrapePageMeta(item.link);
+    // Out of time: no more requests, but what is already known still applies.
+    const meta =
+      Date.now() > deadline
+        ? PAGE_CACHE.get(item.link)
+        : // Only a story still without a photo is worth a search.
+          await scrapePageMeta(item.link, item.image ? null : item.title);
     if (!meta) return;
     if (!item.image && meta.image) item.image = meta.image;
     if (!item.snippet && meta.description) item.snippet = meta.description;

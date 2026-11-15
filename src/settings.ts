@@ -4,6 +4,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cycleMs: 18_000,
   showSnippets: true,
   showImages: true,
+  photosOnly: true,
   theme: 'auto',
   rotateMin: 0,
   keepAwake: false
@@ -56,6 +57,7 @@ function numberIn(value: string | null, min: number, max: number): number | null
  *   ?speed=30      seconds per headline (5–300)
  *   ?rotate=5      minutes per category (0 or "off" stops rotation)
  *   ?excerpts=0    hide excerpts          ?photos=0   hide photos
+ *   ?photosonly=0  also show stories that have no photo
  *   ?awake=1       keep the screen awake
  *
  * They win over the saved settings on every load and are never saved
@@ -77,6 +79,8 @@ export function settingsFromUrl(search: string): Partial<Settings> {
   if (excerpts !== null) pinned.showSnippets = excerpts;
   const photos = flag(params.get('photos'));
   if (photos !== null) pinned.showImages = photos;
+  const photosOnly = flag(params.get('photosonly'));
+  if (photosOnly !== null) pinned.photosOnly = photosOnly;
   const awake = flag(params.get('awake'));
   if (awake !== null) pinned.keepAwake = awake;
 

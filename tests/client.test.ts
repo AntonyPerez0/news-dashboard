@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STALE_MS } from '../src/config.js';
 import { categoryFromUrl, settingsFromUrl } from '../src/settings.js';
-import { computeLayout, isStale, nextCategory, timeAgo } from '../src/utils.js';
+import { computeLayout, isStale, nextCategory, timeAgo, withPhotos } from '../src/utils.js';
 import { isDaytime, resolveTheme } from '../src/theme.js';
 
 describe('computeLayout', () => {
@@ -52,6 +52,27 @@ describe('isStale', () => {
   });
 });
 
+describe('withPhotos', () => {
+  const story = (id: number, pictured: boolean) => ({ id, image: pictured ? `https://img.example/${id}.jpg` : null });
+  const ids = (items: { id: number }[]) => items.map((item) => item.id);
+
+  it('leaves out stories that have no photo', () => {
+    const items = [story(1, true), story(2, false), story(3, true)];
+    expect(ids(withPhotos(items, 2))).toEqual([1, 3]);
+  });
+
+  it('tops a thin category back up, newest first, in the feed\'s order', () => {
+    const items = [story(1, false), story(2, true), story(3, false), story(4, true), story(5, false)];
+    expect(ids(withPhotos(items, 4))).toEqual([1, 2, 3, 4]);
+  });
+
+  it('returns everything when there is not enough to choose from', () => {
+    const items = [story(1, false), story(2, true)];
+    expect(ids(withPhotos(items, 24))).toEqual([1, 2]);
+    expect(withPhotos([], 24)).toEqual([]);
+  });
+});
+
 describe('nextCategory', () => {
   const cats = [{ key: 'a' }, { key: 'b' }, { key: 'c' }];
 
@@ -72,6 +93,7 @@ describe('nextCategory', () => {
 
 describe('settings from the URL', () => {
   it('reads a kiosk setup', () => {
+    expect(settingsFromUrl('?photosonly=0')).toEqual({ photosOnly: false });
     expect(settingsFromUrl('?speed=30&rotate=5&excerpts=0&photos=off&awake=1')).toEqual({
       cycleMs: 30_000,
       rotateMin: 5,

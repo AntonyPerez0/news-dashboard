@@ -29,6 +29,8 @@ export interface Settings {
   cycleMs: number;
   showSnippets: boolean;
   showImages: boolean;
+  /** Leave out stories that have no photo (while photos are shown). */
+  photosOnly: boolean;
   theme: ThemeSetting;
   /** Minutes on each category before moving to the next; 0 = stay put. */
   rotateMin: number;

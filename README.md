@@ -6,7 +6,7 @@
 [![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Tested](https://img.shields.io/badge/tests-Vitest-3FB950)](#testing)
 
-A live news dashboard built for a second monitor. Eleven categories of headlines
+A live news dashboard built for a second monitor. Six categories of headlines
 cycle continuously through a grid of rich tiles — photos, excerpts, source
 logos — so the news stays glanceable without ever touching a scrollbar.
 
@@ -35,8 +35,9 @@ inconsistent third-party data, with zero API keys and zero server costs.
   links back to real publisher URLs. The scraper identifies itself first
   (some publishers serve a declared bot but challenge a fake browser) and
   reads on to `</head>` when a page buries its tags under 300 KB of script.
-  Coverage: ~90 % photos, ~90 % excerpts; scraper-blocking publishers (WSJ,
-  Reuters) degrade to styled monograms
+  For publishers that refuse every automated request (AP, Reuters, WSJ), a
+  news search finds the photo on a syndicated copy of the same headline.
+  Stories that still have no photo are left off the grid by default
 - **Self-healing data layer** — `Promise.allSettled` per feed means one dead
   outlet never takes down a category; fuzzy near-duplicate collapsing stops
   lightly-reworded versions of the same story appearing twice; stories older
@@ -45,12 +46,11 @@ inconsistent third-party data, with zero API keys and zero server costs.
 - **Built to be left alone** — a running tab notices a new deploy and
   reloads itself, categories can rotate on a timer, the screen can be kept
   awake, and a whole setup fits in the URL for kiosk displays
-- **11 categories, 30+ feeds** — Headlines, World, Business, Technology,
-  Sports, Gaming, CS Esports, Science, Health, Entertainment, aggregated from
-  BBC, NPR, Al Jazeera, The Verge, Ars Technica, ESPN, HLTV, Polygon, IGN,
-  GameSpot, Eurogamer and more — plus a single-game tab, WoW: Forever, that
-  pairs Blizzard's own posts with Wowhead, MMO-Champion, Massively
-  Overpowered, Blizzard Watch and the wider press
+- **6 categories, 20+ feeds** — Headlines, World, Technology, Gaming,
+  CS Esports and WoW: Forever, aggregated from BBC, NPR, Al Jazeera, The
+  Verge, Ars Technica, TechCrunch, Polygon, IGN, GameSpot, Eurogamer, HLTV,
+  Wowhead, Blizzard and more. More tabs are a
+  [feeds file](#your-own-feeds-and-region) away
 - **Quality gates** — Vitest tests over the data pipeline, the tile engine
   and the polling hook, plus a strict `tsc` typecheck, all wired into CI on
   every push
@@ -189,6 +189,7 @@ https://newsdash.page/?category=technology&rotate=5&speed=30&awake=1&theme=dark
 | `rotate` | minutes, `0` or `off` | moves to the next category on a timer |
 | `speed` | seconds, 5–300 | time each headline stays on a tile |
 | `excerpts`, `photos` | `1` / `0` | show or hide excerpts and photos |
+| `photosonly` | `1` / `0` | leave out stories that have no photo (on by default) |
 | `awake` | `1` / `0` | keep the screen from sleeping (HTTPS or localhost only) |
 | `theme` | `light`, `dark` | pin the theme |
 

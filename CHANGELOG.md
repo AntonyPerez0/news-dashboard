@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.6.0] — 2026-11-15
+
+### Changed
+
+- **Six tabs instead of eleven** — Headlines, World, Technology, Gaming, CS
+  Esports, WoW: Forever. Business, Sports, Science, Health and
+  Entertainment are removed from the built-in registry; a feeds file can
+  bring any of them back
+- **Stories without a photo are left off the grid** by default (setting
+  "Only stories with a photo", `?photosonly=0`). A thin category is topped
+  back up with them so tiles never run short
+
+### Fixed
+
+- **Photos missing from USA Today, Detroit Free Press and other Gannett
+  sites** — their pages write `<meta property=og:image …>` without quotes,
+  which the parser did not read
+- **Excerpts cut at the first apostrophe** — `content="Trump's plan…"` was
+  read as "Trump", then discarded as too short
+- **Photos for publishers that block every automated request** (AP,
+  Reuters, WSJ, Politico, Forbes) — a news search (Bing's RSS feed) finds
+  the photo on a syndicated copy when the headline is the same story's.
+  A miss is retried after 30 min, 1 h, 2 h and 4 h, since copies take time
+  to appear
+- Cached photos and excerpts not applied to stories the scraper ran out of
+  time to reach
+
 ## [2.5.0] — 2026-11-15
 
 ### Added

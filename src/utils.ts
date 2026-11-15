@@ -18,6 +18,20 @@ export function isStale(fetchedAt: number, now = Date.now()): boolean {
   return now - fetchedAt > STALE_MS;
 }
 
+/** Stories to put on the grid when only ones with a photo are wanted. A
+ *  thin category is topped back up with photo-less stories, newest first,
+ *  so tiles never run short (`min` covers the largest grid twice). */
+export function withPhotos<T extends { image: string | null }>(items: T[], min = 24): T[] {
+  const pictured = items.filter((item) => item.image);
+  if (pictured.length >= min || pictured.length === items.length) return pictured;
+  const wanted = new Set(pictured);
+  for (const item of items) {
+    if (wanted.size >= min) break;
+    wanted.add(item);
+  }
+  return items.filter((item) => wanted.has(item)); // keeps the feed's order
+}
+
 /** The category after `current`, wrapping round; the first one when
  *  `current` is not in the list. */
 export function nextCategory(categories: { key: string }[], current: string): string {

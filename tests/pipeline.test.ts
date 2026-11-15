@@ -10,8 +10,10 @@ import {
   isJunk,
   isOfficial,
   normalizeItem,
+  pickSearchPhoto,
   readHead,
   sanitizeXml,
+  searchDue,
   setBounded,
   stripAggregatorSuffix,
   tidySnippet,
@@ -423,6 +425,90 @@ describe('page cache carried between builds', () => {
       description: null,
       site: null,
       at: now
+    });
+  });
+});
+
+describe('meta tags as real sites write them', () => {
+  it('reads unquoted attributes (Gannett: USA Today, Detroit Free Press)', () => {
+    const html =
+      '<meta property=og:image content="https://www.usatoday.com/gcdn/a.jpg?width=3200&format=pjpg"/>' +
+      '<meta property=og:image:width content=3200 />' +
+      '<meta name=description content="A long enough description of the story to be kept as its excerpt.">';
+    expect(extractMetaImage(html, 'https://www.usatoday.com/story/x/')).toBe(
+      'https://www.usatoday.com/gcdn/a.jpg?width=3200&format=pjpg'
+    );
+    expect(extractMetaDescription(html)).toContain('long enough description');
+  });
+
+  it('keeps an apostrophe inside a double-quoted value', () => {
+    const html = `<meta property="og:description" content="Trump's plan for the summit is the week's main story, aides say.">`;
+    expect(extractMetaDescription(html)).toBe("Trump's plan for the summit is the week's main story, aides say.");
+  });
+
+  it('keeps a double quote inside a single-quoted value', () => {
+    const html = `<meta name='description' content='The "biggest launch in history", according to the studio behind it.'>`;
+    expect(extractMetaDescription(html)).toBe('The "biggest launch in history", according to the studio behind it.');
+  });
+
+  it('is not fooled by an attribute name inside another value', () => {
+    const html = '<meta name="description" content="Set property=og:image and content=nothing in your own tags."><meta property="og:image" content="https://cdn.example.com/real.jpg">';
+    expect(extractMetaImage(html, 'https://example.com/')).toBe('https://cdn.example.com/real.jpg');
+  });
+});
+
+describe('photo search fallback', () => {
+  const feed = (items: { title: string; image?: string }[]) =>
+    `<rss><channel>${items
+      .map(
+        (i) =>
+          `<item><title>${i.title}</title><News:Source>Someone on MSN</News:Source>${
+            i.image ? `<News:Image>${i.image}</News:Image>` : ''
+          }</item>`
+      )
+      .join('')}</channel></rss>`;
+  const photo = 'http://www.bing.com/th?id=ONUT.abc123&amp;pid=News';
+  const title = 'Cape Verde election could deliver first woman president since independence in 1975';
+
+  it('takes the photo from a copy of the same story', () => {
+    const xml = feed([
+      { title: 'Something else entirely happened in the markets today, analysts say', image: photo },
+      { title: 'Cape Verde election could deliver first woman president since independence', image: photo }
+    ]);
+    expect(pickSearchPhoto(xml, title)).toBe('https://www.bing.com/th?id=ONUT.abc123&pid=News');
+  });
+
+  it('ignores photos of other stories, however prominent', () => {
+    const xml = feed([{ title: 'Pope crosses Peru in the finale of a trip home to visit his flock', image: photo }]);
+    expect(pickSearchPhoto(xml, title)).toBeNull();
+  });
+
+  it('ignores a matching result that has no photo, or one from elsewhere', () => {
+    expect(pickSearchPhoto(feed([{ title }]), title)).toBeNull();
+    expect(pickSearchPhoto(feed([{ title, image: 'https://evil.example/th?id=1' }]), title)).toBeNull();
+    expect(pickSearchPhoto('not a feed', title)).toBeNull();
+  });
+
+  it('retries a miss after 30 min, 1 h, 2 h and 4 h, then stops', () => {
+    const MIN = 60_000;
+    const now = Date.UTC(2026, 10, 15, 12);
+    const after = (searches: number, minutes: number) => searchDue({ searches, searchedAt: now - minutes * MIN }, now);
+    expect(searchDue({}, now)).toBe(true);
+    expect(after(1, 29)).toBe(false);
+    expect(after(1, 31)).toBe(true);
+    expect(after(2, 59)).toBe(false);
+    expect(after(2, 61)).toBe(true);
+    expect(after(4, 239)).toBe(false);
+    expect(after(4, 241)).toBe(true);
+    expect(after(5, 100_000)).toBe(false);
+  });
+
+  it('remembers its tries across builds', () => {
+    const at = Date.now() - 1000;
+    importPageCache({ 'https://example.com/tried': { image: null, description: null, site: null, at, searches: 2, searchedAt: at } });
+    expect(exportPageCache(['https://example.com/tried'])['https://example.com/tried']).toMatchObject({
+      searches: 2,
+      searchedAt: at
     });
   });
 });

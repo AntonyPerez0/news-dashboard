@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { PALETTE } from '../config';
 import { useWindowSize } from '../hooks/useWindowSize';
-import { computeLayout } from '../utils';
+import { computeLayout, withPhotos } from '../utils';
 import type { NewsItem, Settings } from '../types';
 import { Tile } from './Tile';
 
@@ -13,10 +13,14 @@ interface TileGridProps {
   settings: Settings;
 }
 
-export function TileGrid({ category, items, allPaused, timeTick, settings }: TileGridProps) {
+export function TileGrid({ category, items: allItems, allPaused, timeTick, settings }: TileGridProps) {
   const { width, height } = useWindowSize();
   const { rows, cols } = useMemo(() => computeLayout(width, height), [width, height]);
   const count = rows * cols;
+  // A tile without its photo reads as broken, so by default those stories
+  // are left out. Not when photos are switched off altogether.
+  const photosOnly = settings.photosOnly && settings.showImages;
+  const items = useMemo(() => (photosOnly ? withPhotos(allItems) : allItems), [allItems, photosOnly]);
   const loading = items.length === 0;
 
   // Tile i owns every count-th item, so all tiles show distinct headlines.

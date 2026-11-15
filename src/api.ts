@@ -3,14 +3,9 @@ import type { Category, NewsData } from './types';
 export const DEFAULT_CATEGORIES: Category[] = [
   { key: 'headlines', label: 'Headlines' },
   { key: 'world', label: 'World' },
-  { key: 'business', label: 'Business' },
   { key: 'technology', label: 'Technology' },
-  { key: 'sports', label: 'Sports' },
-  { key: 'esports', label: 'CS Esports' },
   { key: 'gaming', label: 'Gaming' },
-  { key: 'science', label: 'Science' },
-  { key: 'health', label: 'Health' },
-  { key: 'entertainment', label: 'Entertainment' },
+  { key: 'esports', label: 'CS Esports' },
   { key: 'wowforever', label: 'WoW: Forever' }
 ];
 

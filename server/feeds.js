@@ -84,15 +84,6 @@ export function defaultCategories(edition = parseEdition()) {
         { url: 'https://www.aljazeera.com/xml/rss/all.xml', name: 'Al Jazeera' }
       ]
     },
-    business: {
-      label: 'Business',
-      feeds: [
-        googleTopic('BUSINESS', edition),
-        { url: 'http://feeds.bbci.co.uk/news/business/rss.xml', name: 'BBC News' },
-        { url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories', name: 'MarketWatch' },
-        { url: 'https://feeds.npr.org/1006/rss.xml', name: 'NPR' }
-      ]
-    },
     technology: {
       label: 'Technology',
       feeds: [
@@ -101,15 +92,6 @@ export function defaultCategories(edition = parseEdition()) {
         { url: 'https://feeds.arstechnica.com/arstechnica/index', name: 'Ars Technica' },
         { url: 'https://techcrunch.com/feed/', name: 'TechCrunch' },
         { url: 'http://feeds.bbci.co.uk/news/technology/rss.xml', name: 'BBC News' }
-      ]
-    },
-    sports: {
-      label: 'Sports',
-      feeds: [
-        googleTopic('SPORTS', edition),
-        { url: 'https://www.espn.com/espn/rss/news', name: 'ESPN' },
-        { url: 'https://feeds.bbci.co.uk/sport/rss.xml', name: 'BBC Sport' },
-        { url: 'https://www.skysports.com/rss/12040', name: 'Sky Sports' }
       ]
     },
     gaming: {
@@ -128,33 +110,6 @@ export function defaultCategories(edition = parseEdition()) {
         { url: 'https://www.hltv.org/rss/news', name: 'HLTV' },
         // Google News search RSS: fresh Counter-Strike stories from all outlets
         googleSearch('counter-strike when:7d', edition)
-      ]
-    },
-    science: {
-      label: 'Science',
-      feeds: [
-        googleTopic('SCIENCE', edition),
-        { url: 'http://feeds.bbci.co.uk/news/science_and_environment/rss.xml', name: 'BBC News' },
-        { url: 'https://phys.org/rss-feed/', name: 'Phys.org' },
-        { url: 'https://www.sciencedaily.com/rss/all.xml', name: 'ScienceDaily' }
-      ]
-    },
-    health: {
-      label: 'Health',
-      feeds: [
-        googleTopic('HEALTH', edition),
-        { url: 'http://feeds.bbci.co.uk/news/health/rss.xml', name: 'BBC News' },
-        { url: 'https://feeds.npr.org/1007/rss.xml', name: 'NPR' },
-        { url: 'https://www.statnews.com/feed/', name: 'STAT' }
-      ]
-    },
-    entertainment: {
-      label: 'Entertainment',
-      feeds: [
-        googleTopic('ENTERTAINMENT', edition),
-        { url: 'http://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', name: 'BBC News' },
-        { url: 'https://variety.com/feed/', name: 'Variety' },
-        { url: 'https://www.hollywoodreporter.com/feed/', name: 'The Hollywood Reporter' }
       ]
     },
     wowforever: {
