@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.3.0] — 2026-11-14
+
+### Added
+
+- **Category rotation** — optional timer (2, 5 or 10 minutes) that moves to
+  the next category; holds while paused, in the settings or while a tile is
+  under the cursor
+- **URL parameters** — `?category=`, `?rotate=`, `?speed=`, `?excerpts=`,
+  `?photos=`, `?awake=` pin a setup for kiosk displays without saving it
+- **Keep screen awake** — opt-in setting using the Screen Wake Lock API
+- **Self-updating tabs** — the build publishes `version.json`; a running tab
+  reloads itself when a newer build is deployed
+- **Configurable feeds and region** — `NEWS_EDITION` picks the Google News
+  edition, `NEWS_FEEDS_FILE` replaces the categories with your own; the
+  static build publishes its category list for the client
+
+### Fixed
+
+- **Previous category's stories lingering after a switch** (regression in
+  2.2.1) — later tiles showed the old category for up to ~16 s. The news
+  hook no longer hands out another category's stories
+- **Stories months old on a live board** — anything older than three days is
+  dropped (per-category override, slow categories are topped back up)
+- **Missing photos** — the scraper identifies itself before falling back to
+  a browser identity (ESPN, Phys.org) and reads past 150 KB to `</head>`
+  (Hollywood Reporter, Variety). Measured photo coverage 80 % → 91 %
+- **Two dead feeds removed** — the Google News "Gaming" topic and Yahoo
+  Finance returned no stories
+- **A reload after a deploy showing the old version** — the service worker
+  now serves the page network-first
+- **Closed settings drawer reachable by keyboard**; the open drawer takes
+  focus, keeps Tab inside and gives focus back, and dashboard shortcuts no
+  longer fire while it is open
+- Titles escaped twice by their feed (`Hope &amp; Fear`)
+- Unbounded page-metadata cache on a long-running server
+
+### Changed
+
+- **Tiles are real links** — middle-click, "open in new tab" and "copy
+  link" work
+- About panel says where images come from: photos from publishers, source
+  icons from Google's icon service (now requested without a referrer)
+
 ## [2.2.1] — 2026-11-14
 
 ### Fixed

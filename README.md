@@ -32,12 +32,19 @@ inconsistent third-party data, with zero API keys and zero server costs.
 - **Photo & excerpt pipeline** — most RSS feeds ship no image or summary, so
   each story falls back to scraping the article's `og:image` /
   `og:description` / JSON-LD metadata — after resolving Google News gateway
-  links back to real publisher URLs. Coverage: ~90 % photos, ~90 % excerpts;
-  scraper-blocking publishers (WSJ, Reuters) degrade to styled monograms
+  links back to real publisher URLs. The scraper identifies itself first
+  (some publishers serve a declared bot but challenge a fake browser) and
+  reads on to `</head>` when a page buries its tags under 300 KB of script.
+  Coverage: ~90 % photos, ~90 % excerpts; scraper-blocking publishers (WSJ,
+  Reuters) degrade to styled monograms
 - **Self-healing data layer** — `Promise.allSettled` per feed means one dead
   outlet never takes down a category; fuzzy near-duplicate collapsing stops
-  lightly-reworded versions of the same story appearing twice; SWR caching
-  with negative-result backoff keeps upstream feeds unharmed during outages
+  lightly-reworded versions of the same story appearing twice; stories older
+  than three days are dropped; SWR caching with negative-result backoff
+  keeps upstream feeds unharmed during outages
+- **Built to be left alone** — a running tab notices a new deploy and
+  reloads itself, categories can rotate on a timer, the screen can be kept
+  awake, and a whole setup fits in the URL for kiosk displays
 - **10 categories, 20+ feeds** — Headlines, World, Business, Technology,
   Sports, CS Esports, Gaming, Science, Health, Entertainment, aggregated from
   BBC, NPR, Al Jazeera, The Verge, Ars Technica, ESPN, HLTV, Polygon, IGN,
@@ -82,7 +89,8 @@ src/                          server/
     TileGrid.tsx    grid + heartbeat          feeds.js    feed registry
     Header.tsx      nav, clock, status      scripts/
     SettingsDrawer  speed, density            generate-data.js  static build
-  hooks/        useNews, useClock, useWindowSize
+  hooks/        useNews, useClock, useWakeLock
+  update.ts     reload when a newer build is out
   api.ts        live-API-first data layer
   types.ts      shared contracts
 ```
@@ -130,7 +138,29 @@ npm run test:watch    # vitest watch mode
 ```
 
 Keyboard: `F` fullscreen · `Space` pause/resume · `1`–`9`, `0` categories ·
-`Enter` open focused story
+`Enter` open focused story · `Esc` close settings
+
+## Kiosk setup
+
+Everything in the settings drawer can also be pinned from the URL, so a
+display can be set up with a bookmark and nothing else:
+
+```
+https://newsdash.page/?category=technology&rotate=5&speed=30&awake=1&theme=dark
+```
+
+| Parameter | Values | Effect |
+| --- | --- | --- |
+| `category` | a category key (`headlines`, `world`, …) | opens on that category |
+| `rotate` | minutes, `0` or `off` | moves to the next category on a timer |
+| `speed` | seconds, 5–300 | time each headline stays on a tile |
+| `excerpts`, `photos` | `1` / `0` | show or hide excerpts and photos |
+| `awake` | `1` / `0` | keep the screen from sleeping (HTTPS or localhost only) |
+| `theme` | `light`, `dark` | pin the theme |
+
+URL values win over saved settings on every load and are never saved
+themselves; changing a setting by hand takes over for that setting until the
+page is reloaded.
 
 ## Adding feeds
 
@@ -146,6 +176,51 @@ gaming: {
   ]
 }
 ```
+
+## Your own feeds and region
+
+The feeds are fetched by the server (or the deploy job), not the browser, so
+they are configured where that runs — your own `npm start`, or your fork's
+deploy — with two environment variables. The hosted newsdash.page uses the
+defaults.
+
+**`NEWS_EDITION`** switches the Google News feeds to another edition, as
+`<COUNTRY>:<language>`:
+
+```bash
+NEWS_EDITION=GB:en npm start        # also DE:de, FR:fr, MX:es-419, …
+```
+
+**`NEWS_FEEDS_FILE`** points at a JSON file that replaces the built-in
+categories entirely:
+
+```json
+{
+  "categories": {
+    "berlin": {
+      "label": "Berlin",
+      "maxAgeDays": 7,
+      "feeds": [
+        { "url": "https://www.tagesschau.de/index~rss2.xml", "name": "tagesschau" },
+        { "googleTopic": "WORLD" },
+        { "googleSearch": "berlin when:7d" },
+        { "googleTop": true }
+      ]
+    }
+  }
+}
+```
+
+A feed is either a `url` with the `name` shown on its tiles, or a Google News
+shorthand that follows `NEWS_EDITION`: `googleTop`, `googleTopic` (`WORLD`,
+`NATION`, `BUSINESS`, `TECHNOLOGY`, `ENTERTAINMENT`, `SPORTS`, `SCIENCE`,
+`HEALTH`) or `googleSearch`. `maxAgeDays` overrides the three-day cut-off for
+a slow category. A file with a mistake stops the server at startup with the
+path of the bad entry.
+
+On a fork deployed to GitHub Pages, set both as repository variables
+(Settings → Secrets and variables → Actions → Variables), with
+`NEWS_FEEDS_FILE` as a path inside the repo.
 
 ## Versioning & changelog
 
