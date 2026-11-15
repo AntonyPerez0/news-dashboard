@@ -49,6 +49,8 @@ export function sanitizeXml(xml) {
   return xml.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;');
 }
 
+const nameWords = (name) => name.toLowerCase().split(/[^a-z0-9.]+/).filter((word) => word.length > 2);
+
 // Google News appends " - Outlet" to every headline, sometimes twice
 // ("Headline - Outlet news - Outlet"). Strip repeatedly; the last suffix
 // stripped is the most reliable source label.
@@ -61,13 +63,25 @@ export function stripAggregatorSuffix(title) {
     if (!match) break;
     const suffix = match[2].trim();
     // A publication name, not a sentence fragment: accept capitalized names
-    // ("Reuters") or anything domain-like — no whitespace plus a dot
-    // ("eurogamer.net", "dust2.us", "japantimes.co.jp"); reject sentences.
-    const looksLikeSource = /[A-Z]/.test(suffix) ||
-      (/\./.test(suffix) && !/\s/.test(suffix));
+    // ("Reuters"), anything domain-like — no whitespace plus a dot
+    // ("eurogamer.net", "dust2.us", "japantimes.co.jp") — or a single
+    // lowercase word ("space4games"); reject sentences.
+    const looksLikeSource = /[A-Z]/.test(suffix) || /^[\w.]+$/.test(suffix);
     if (!looksLikeSource || /[!?…:]$/.test(suffix)) break;
+    // Past the first suffix, only the same outlet again counts. Anything else
+    // is part of the headline ("Hotfixes - November 11, 2026 - Blizzard News",
+    // "Druid Guide - Talents, Rotations & More - Wowhead").
+    if (source !== null) {
+      const known = nameWords(source);
+      if (!nameWords(suffix).some((word) => known.includes(word))) break;
+    }
     titleOut = match[1].trim();
     source = suffix;
+    // The outlet's own page title can repeat its name behind a dash of its
+    // own ("Headline — Blizzard News - Blizzard News").
+    for (const dash of [' — ', ' – ', ' | ']) {
+      if (titleOut.endsWith(dash + source)) titleOut = titleOut.slice(0, -(dash + source).length).trim();
+    }
   }
   return { title: titleOut, source };
 }
@@ -174,6 +188,16 @@ export function isJunk(title) {
   return JUNK_TITLE_RE.test(title);
 }
 
+/** Whether a normalized story belongs in its feed's category. A feed can
+ *  narrow itself with `match` (a general feed kept to one topic) and
+ *  `exclude`; an outlet's own index page ("Blizzard News") is never a story. */
+export function wanted(item, feed) {
+  if (item.title.toLowerCase() === item.source.toLowerCase()) return false;
+  if (feed.match && !feed.match.test(item.title)) return false;
+  if (feed.exclude && feed.exclude.test(item.title)) return false;
+  return true;
+}
+
 export function normalizeItem(item, feed) {
   // Some feeds escape twice ("Hope &amp;amp; Fear"), leaving a literal
   // "&amp;" after XML parsing.
@@ -186,6 +210,11 @@ export function normalizeItem(item, feed) {
       title = stripped.title;
       source = stripped.source;
     }
+  }
+
+  // Section names a site tacks onto its page titles (feed.trim).
+  for (const tail of feed.trim || []) {
+    if (title.endsWith(tail)) title = title.slice(0, -tail.length).trim();
   }
 
   // Google News summaries are link-lists, not real excerpts.
@@ -348,7 +377,9 @@ async function fetchPageHead(url, userAgent) {
       headers: { 'User-Agent': userAgent, Accept: 'text/html,application/xhtml+xml,*/*' }
     });
     const contentType = res.headers.get('content-type') || '';
-    if (!res.ok || !contentType.includes('html')) return null;
+    // Not `res.ok`: some sites send the article with a 3xx status and no
+    // Location (Blizzard's hotfix posts arrive as 307).
+    if (res.status >= 400 || !contentType.includes('html')) return null;
     return { html: await readHead(res.body), url: res.url || url };
   } catch {
     return null; // timeout, 403, redirect loop
@@ -457,13 +488,14 @@ export function areNearDuplicates(aTitle, bTitle) {
 }
 
 /** Keep the first of each near-duplicate run (input is newest-first, so the
- *  freshest wording survives). */
-export function dedupeNearDuplicates(items) {
+ *  freshest wording survives) — unless a later copy `isPreferred` and the
+ *  kept one is not, in which case it takes the kept one's place. */
+export function dedupeNearDuplicates(items, isPreferred = () => false) {
   const kept = [];
   for (const item of items) {
-    if (!kept.some((other) => areNearDuplicates(other.title, item.title))) {
-      kept.push(item);
-    }
+    const at = kept.findIndex((other) => areNearDuplicates(other.title, item.title));
+    if (at < 0) kept.push(item);
+    else if (isPreferred(item) && !isPreferred(kept[at])) kept[at] = item;
   }
   return kept;
 }
@@ -490,6 +522,29 @@ export function dropOldStories(items, { maxAgeMs, minItems = MIN_STORIES, now = 
   return [...current, ...older].sort((a, b) => b.publishedAt - a.publishedAt);
 }
 
+/** `official: true` marks a publisher's own feed; in a search feed that
+ *  mixes outlets, a pattern picks the publisher out by source name. */
+export function isOfficial(item, feed) {
+  return feed.official instanceof RegExp ? feed.official.test(item.source) : Boolean(feed.official);
+}
+
+/** One candidate per headline. Between copies, the one from a feed marked
+ *  `official` wins (the publisher's own post over a repost of it); otherwise
+ *  the most recently published. */
+export function pickByTitle(candidates) {
+  const byTitle = new Map();
+  for (const candidate of candidates) {
+    const key = candidate.item.title.toLowerCase().replace(/\s+/g, ' ');
+    const held = byTitle.get(key);
+    const better =
+      !held ||
+      (candidate.official && !held.official) ||
+      (candidate.official === held.official && candidate.item.publishedAt > held.item.publishedAt);
+    if (better) byTitle.set(key, candidate);
+  }
+  return [...byTitle.values()];
+}
+
 /** Fetch every feed in a category, merge, dedupe and sort. Never throws for
  *  a single dead feed — throws only if all feeds fail. */
 export async function fetchCategoryFeeds(key) {
@@ -505,7 +560,7 @@ export async function fetchCategoryFeeds(key) {
     )
   );
 
-  const byTitle = new Map();
+  const candidates = [];
   let ok = 0;
 
   for (const result of results) {
@@ -518,20 +573,20 @@ export async function fetchCategoryFeeds(key) {
     for (const item of parsed.items || []) {
       const normalized = normalizeItem(item, feed);
       if (!normalized.title || !normalized.link) continue;
-      if (isJunk(normalized.title)) continue;
-      const dedupeKey = normalized.title.toLowerCase().replace(/\s+/g, ' ');
-      const existing = byTitle.get(dedupeKey);
-      if (!existing || normalized.publishedAt > existing.publishedAt) {
-        byTitle.set(dedupeKey, normalized);
-      }
+      if (isJunk(normalized.title) || !wanted(normalized, feed)) continue;
+      candidates.push({ item: normalized, official: isOfficial(normalized, feed) });
     }
   }
 
   if (ok === 0) throw new Error(`all feeds failed for category "${key}"`);
 
-  const sorted = [...byTitle.values()].sort((a, b) => b.publishedAt - a.publishedAt);
+  const picked = pickByTitle(candidates);
+  const official = new Set(picked.filter((candidate) => candidate.official).map((candidate) => candidate.item));
+  const sorted = picked.map((candidate) => candidate.item).sort((a, b) => b.publishedAt - a.publishedAt);
   const current = dropOldStories(sorted, { maxAgeMs: maxAgeDays * DAY_MS });
-  return dedupeNearDuplicates(current).slice(0, 150);
+  return dedupeNearDuplicates(current, (item) => official.has(item))
+    .sort((a, b) => b.publishedAt - a.publishedAt)
+    .slice(0, 150);
 }
 
 /** Feeds + blocking image enrichment. Used by the static build, which has

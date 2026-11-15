@@ -13,6 +13,9 @@ import { applyTheme, resolveTheme } from './theme';
 import type { Settings } from './types';
 import { nextCategory } from './utils';
 
+// The number row, left to right: one key per category tab.
+const CATEGORY_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='];
+
 export default function App() {
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
@@ -132,9 +135,8 @@ export default function App() {
       } else if (key === ' ' || e.code === 'Space') {
         e.preventDefault();
         setAllPaused((p) => !p);
-      } else if (/^[0-9]$/.test(key)) {
-        const index = key === '0' ? 9 : Number(key) - 1;
-        const cat = categories[index];
+      } else if (CATEGORY_KEYS.includes(key)) {
+        const cat = categories[CATEGORY_KEYS.indexOf(key)];
         if (cat) selectCategory(cat.key);
       }
     };

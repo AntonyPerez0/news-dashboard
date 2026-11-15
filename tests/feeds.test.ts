@@ -88,6 +88,66 @@ describe('custom feeds file', () => {
   });
 
   it('falls back to the built-in categories', () => {
-    expect(Object.keys(loadCategories({}))).toHaveLength(10);
+    expect(Object.keys(loadCategories({}))).toHaveLength(11);
+  });
+
+  it('reads the single-subject options', () => {
+    const { a } = customCategories({
+      categories: {
+        a: {
+          label: 'A',
+          feeds: [
+            { url: 'https://x.test/rss', name: 'X', match: '\\bforever\\b', exclude: 'guide', trim: [' — Site'] },
+            { googleSearch: 'site:news.blizzard.com forever', official: true }
+          ]
+        }
+      }
+    });
+    expect(a.feeds[0].match.test('WoW: FOREVER hotfixes')).toBe(true);
+    expect(a.feeds[0].match.test('Foreverglades')).toBe(false);
+    expect(a.feeds[0].exclude.test('Mage Guide')).toBe(true);
+    expect(a.feeds[0].trim).toEqual([' — Site']);
+    expect(a.feeds[0].official).toBeUndefined();
+    expect(a.feeds[1].official).toBe(true);
+    const named = customCategories({
+      categories: { b: { label: 'B', feeds: [{ googleSearch: 'forever', official: '^Blizzard' }] } }
+    });
+    expect(named.b.feeds[0].official.test('Blizzard News')).toBe(true);
+  });
+
+  it('rejects a pattern that does not compile, naming it', () => {
+    const feeds = [{ url: 'https://x.test/rss', name: 'X', match: '(' }];
+    expect(() => customCategories({ categories: { a: { label: 'A', feeds } } })).toThrow(
+      /categories\.a\.feeds\[0\]\.match: not a valid pattern/
+    );
+  });
+});
+
+describe('WoW: Forever category', () => {
+  const { wowforever } = defaultCategories();
+
+  it('is the last tab, with a week of stories', () => {
+    expect(Object.keys(defaultCategories()).at(-1)).toBe('wowforever');
+    expect(wowforever.label).toBe('WoW: Forever');
+    expect(wowforever.maxAgeDays).toBe(7);
+  });
+
+  it('reads Blizzard\'s own posts first and marks them official', () => {
+    const [blizzard] = wowforever.feeds;
+    expect(decodeURIComponent(blizzard.url)).toContain('site:news.blizzard.com');
+    expect(blizzard.official).toBe(true);
+    // The press search also carries Blizzard's posts, and knows them by name.
+    const press = wowforever.feeds.at(-1);
+    expect(press.official.test('Blizzard News')).toBe(true);
+    expect(press.official.test('Blizzard Watch')).toBe(false);
+  });
+
+  it('keeps the general WoW feeds to this game', () => {
+    const general = wowforever.feeds.filter((feed: { name: string }) =>
+      ['MMO-Champion', 'Blizzard Watch', 'Massively Overpowered'].includes(feed.name)
+    );
+    expect(general).toHaveLength(3);
+    for (const feed of general) expect(feed.match.test('WoW: Forever Hotfixes')).toBe(true);
+    for (const feed of general) expect(feed.match.test('Midnight Season 2 begins')).toBe(false);
   });
 });

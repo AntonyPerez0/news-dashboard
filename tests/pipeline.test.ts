@@ -6,12 +6,15 @@ import {
   extractMetaDescription,
   extractMetaImage,
   isJunk,
+  isOfficial,
   normalizeItem,
   readHead,
   sanitizeXml,
   setBounded,
   stripAggregatorSuffix,
-  tidySnippet
+  tidySnippet,
+  pickByTitle,
+  wanted
 } from '../server/news.js';
 
 describe('near-duplicate collapsing', () => {
@@ -76,6 +79,32 @@ describe('stripAggregatorSuffix', () => {
     const out = stripAggregatorSuffix('Beltline light-rail plan unveiled - WSB-TV');
     expect(out.title).toBe('Beltline light-rail plan unveiled');
     expect(out.source).toBe('WSB-TV');
+  });
+
+  it('does not mistake part of the headline for a second outlet', () => {
+    expect(stripAggregatorSuffix('WoW: Forever Hotfixes - November 11, 2026 - Blizzard News')).toEqual({
+      title: 'WoW: Forever Hotfixes - November 11, 2026',
+      source: 'Blizzard News'
+    });
+    expect(stripAggregatorSuffix('Frost Mage Guide - Talents, Rotations & More - WoW Forever - Wowhead')).toEqual({
+      title: 'Frost Mage Guide - Talents, Rotations & More - WoW Forever',
+      source: 'Wowhead'
+    });
+  });
+
+  it('removes the outlet\'s own "— Site" tail', () => {
+    const raw = 'WoW: Forever Hotfixes - November 9, 2026 — World of Warcraft — Blizzard News - Blizzard News';
+    expect(stripAggregatorSuffix(raw)).toEqual({
+      title: 'WoW: Forever Hotfixes - November 9, 2026 — World of Warcraft',
+      source: 'Blizzard News'
+    });
+  });
+
+  it('accepts a one-word lowercase outlet', () => {
+    expect(stripAggregatorSuffix('WoW Forever Legacy Points explained - space4games')).toEqual({
+      title: 'WoW Forever Legacy Points explained',
+      source: 'space4games'
+    });
   });
 
   it('respects lowercase domain outlets', () => {
@@ -158,6 +187,15 @@ describe('normalizeItem', () => {
       { name: 'BBC News', aggregate: false }
     );
     expect(item.snippet).toBeNull();
+  });
+
+  it('trims the section names a feed lists', () => {
+    const item = normalizeItem(
+      { title: 'Explore WoW: Forever with a Gamepad — World of Warcraft - Blizzard News', link: 'https://x/5' },
+      { name: 'Google News', aggregate: true, trim: [' — World of Warcraft'] }
+    );
+    expect(item.title).toBe('Explore WoW: Forever with a Gamepad');
+    expect(item.source).toBe('Blizzard News');
   });
 
   it('decodes entities a feed escaped twice', () => {
@@ -286,5 +324,57 @@ describe('bounded cache', () => {
     setBounded(map, 'e', 1, 3);
     expect([...map.keys()]).toEqual(['c', 'a', 'e']);
     expect(map.get('a')).toBe(2);
+  });
+});
+
+describe('single-subject feeds', () => {
+  const story = (title: string, source = 'MMO-Champion') => ({ title, source });
+
+  it('keeps a general feed to its subject with match', () => {
+    const feed = { match: /\bforever\b/i };
+    expect(wanted(story('WoW: Forever Hotfixes - November 13, 2026'), feed)).toBe(true);
+    expect(wanted(story('Midnight Season 2 Mythic+ Rotation'), feed)).toBe(false);
+    expect(wanted(story('Foreverglades zone preview'), feed)).toBe(false);
+  });
+
+  it('drops what exclude names', () => {
+    const feed = { exclude: /\bguide\b/i };
+    expect(wanted(story('Restoration Druid Guide'), feed)).toBe(false);
+    expect(wanted(story('Players guided to the wrong zone'), feed)).toBe(true);
+  });
+
+  it('never takes an outlet\'s index page for a story', () => {
+    expect(wanted(story('Blizzard News', 'Blizzard News'), {})).toBe(false);
+  });
+
+  it('prefers the official copy of a headline over a later repost', () => {
+    const official = { title: 'WoW: Forever Hotfixes', source: 'Blizzard News', publishedAt: 100 };
+    const repost = { title: 'WoW:  Forever hotfixes', source: 'MMO-Champion', publishedAt: 900 };
+    const picked = (list: { item: typeof official; official: boolean }[]) => pickByTitle(list).map((c) => c.item.source);
+    expect(picked([{ item: repost, official: false }, { item: official, official: true }])).toEqual(['Blizzard News']);
+    expect(picked([{ item: official, official: true }, { item: repost, official: false }])).toEqual(['Blizzard News']);
+  });
+
+  it('recognises the publisher inside a mixed search feed', () => {
+    const feed = { official: /^Blizzard( News)?$/i };
+    expect(isOfficial({ source: 'Blizzard News' }, feed)).toBe(true);
+    expect(isOfficial({ source: 'Blizzard Watch' }, feed)).toBe(false);
+    expect(isOfficial({ source: 'Anyone' }, { official: true })).toBe(true);
+    expect(isOfficial({ source: 'Blizzard News' }, {})).toBe(false);
+  });
+
+  it('otherwise keeps the most recent copy of a headline', () => {
+    const older = { title: 'Same headline', source: 'A', publishedAt: 100 };
+    const newer = { title: 'Same headline', source: 'B', publishedAt: 900 };
+    expect(pickByTitle([{ item: older, official: false }, { item: newer, official: false }])[0]?.item.source).toBe('B');
+  });
+
+  it('lets a preferred story replace its near-duplicate', () => {
+    const wowhead = { title: 'The WoW: Forever Podcast Episode 7 Now Available - Lore Episode', source: 'Wowhead' };
+    const blizzard = { title: 'Watch the WoW: Forever Podcast Episode 7 - Lore Episode', source: 'Blizzard News' };
+    expect(dedupeNearDuplicates([wowhead, blizzard]).map((i) => i.source)).toEqual(['Wowhead']);
+    expect(dedupeNearDuplicates([wowhead, blizzard], (i) => i === blizzard).map((i) => i.source)).toEqual([
+      'Blizzard News'
+    ]);
   });
 });

@@ -10,7 +10,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { key: 'gaming', label: 'Gaming' },
   { key: 'science', label: 'Science' },
   { key: 'health', label: 'Health' },
-  { key: 'entertainment', label: 'Entertainment' }
+  { key: 'entertainment', label: 'Entertainment' },
+  { key: 'wowforever', label: 'WoW: Forever' }
 ];
 
 /**

@@ -4,6 +4,13 @@
 // `aggregate: true` marks Google News feeds, whose titles are suffixed with
 // " - Outlet" — news.js strips the suffix and uses it as the source name.
 //
+// Optional per feed:
+//   match / exclude  keep or drop stories by headline (RegExp)
+//   trim             endings to remove from headlines (string[])
+//   official         the publisher's own feed: its copy of a story wins over
+//                    a repost with the same headline. `true`, or a RegExp
+//                    naming the publisher's sources in a mixed search feed
+//
 // Two environment variables reconfigure the registry without editing code:
 //
 //   NEWS_EDITION     Google News edition as "<COUNTRY>:<language>", e.g.
@@ -46,6 +53,11 @@ const googleTop = (edition) => googleFeed('', edition);
 const googleTopic = (topic, edition) => googleFeed(`/headlines/section/topic/${topic}`, edition);
 const googleSearch = (search, edition) =>
   googleFeed('/search', edition, `q=${encodeURIComponent(search).replace(/%20/g, '+').replace(/%3A/gi, ':')}&`);
+
+const FOREVER = /\bforever\b/i;
+const BLIZZARD = /^(Blizzard( News| Entertainment)?|World of Warcraft)$/i;
+// Blizzard's page titles end in the game's name, sometimes the site's too.
+const BLIZZARD_TAILS = [' — World of Warcraft', ' — WoW'];
 
 /** Topics Google News publishes a feed for. */
 const GOOGLE_TOPICS = [
@@ -144,6 +156,37 @@ export function defaultCategories(edition = parseEdition()) {
         { url: 'https://variety.com/feed/', name: 'Variety' },
         { url: 'https://www.hollywoodreporter.com/feed/', name: 'The Hollywood Reporter' }
       ]
+    },
+    wowforever: {
+      label: 'WoW: Forever',
+      maxAgeDays: 7,
+      feeds: [
+        // Official posts. Blizzard publishes no RSS, so its news site is
+        // read through Google News.
+        {
+          ...googleSearch('site:news.blizzard.com "WoW: Forever" when:14d', edition),
+          trim: BLIZZARD_TAILS,
+          official: true
+        },
+        { url: 'https://www.wowhead.com/news/rss/forever', name: 'Wowhead' },
+        // General WoW feeds (and one tag feed that also carries round-ups),
+        // kept to this game by their headlines.
+        { url: 'https://massivelyop.com/tag/wow-forever/feed/', name: 'Massively Overpowered', match: FOREVER },
+        {
+          url: 'https://www.mmo-champion.com/external.php?do=rss&type=newcontent&sectionid=1&days=120&count=20',
+          name: 'MMO-Champion',
+          match: FOREVER
+        },
+        { url: 'https://blizzardwatch.com/feed/', name: 'Blizzard Watch', match: FOREVER },
+        // Everyone else. Class and profession guides are reference pages
+        // that would crowd out the news.
+        {
+          ...googleSearch('"WoW Forever" OR "World of Warcraft: Forever" when:7d', edition),
+          trim: BLIZZARD_TAILS,
+          exclude: /\bguide\b/i,
+          official: BLIZZARD
+        }
+      ]
     }
   };
 }
@@ -152,8 +195,7 @@ export function defaultCategories(edition = parseEdition()) {
 // Custom registry (NEWS_FEEDS_FILE)
 // ---------------------------------------------------------------------------
 
-function customFeed(entry, where, edition) {
-  if (!entry || typeof entry !== 'object') throw new Error(`${where}: must be an object`);
+function customSource(entry, where, edition) {
   if (entry.googleTop) return googleTop(edition);
   if (entry.googleTopic !== undefined) {
     const topic = String(entry.googleTopic).toUpperCase();
@@ -175,6 +217,32 @@ function customFeed(entry, where, edition) {
     throw new Error(`${where}: needs a "name" (shown as the source on each tile)`);
   }
   return { url: entry.url, name: entry.name.trim(), ...(entry.aggregate ? { aggregate: true } : {}) };
+}
+
+/** "match" / "exclude": a case-insensitive pattern tested against headlines. */
+function customPattern(value, where) {
+  if (typeof value !== 'string' || !value) throw new Error(`${where}: must be a non-empty pattern`);
+  try {
+    return new RegExp(value, 'i');
+  } catch (err) {
+    throw new Error(`${where}: not a valid pattern (${err.message})`);
+  }
+}
+
+function customFeed(entry, where, edition) {
+  if (!entry || typeof entry !== 'object') throw new Error(`${where}: must be an object`);
+  const feed = customSource(entry, where, edition);
+  if (entry.match !== undefined) feed.match = customPattern(entry.match, `${where}.match`);
+  if (entry.exclude !== undefined) feed.exclude = customPattern(entry.exclude, `${where}.exclude`);
+  if (entry.trim !== undefined) {
+    if (!Array.isArray(entry.trim) || !entry.trim.every((tail) => typeof tail === 'string' && tail)) {
+      throw new Error(`${where}.trim: must be a list of title endings to remove`);
+    }
+    feed.trim = entry.trim;
+  }
+  if (typeof entry.official === 'string') feed.official = customPattern(entry.official, `${where}.official`);
+  else if (entry.official) feed.official = true;
+  return feed;
 }
 
 /** Validates a custom registry and expands its Google News shorthands for

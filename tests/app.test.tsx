@@ -145,6 +145,16 @@ describe('category rotation', () => {
 });
 
 describe('keyboard shortcuts', () => {
+  it('reach an 11th category with the key after 0', async () => {
+    const eleven = Array.from({ length: 11 }, (_, i) => ({ key: `cat${i + 1}`, label: `Cat ${i + 1}` }));
+    vi.mocked(loadCategories).mockResolvedValue(eleven);
+    await mountAt('?category=cat1');
+    fireEvent.keyDown(document, { key: '0' });
+    expect(active()).toBe('Cat 10');
+    fireEvent.keyDown(document, { key: '-' });
+    expect(active()).toBe('Cat 11');
+  });
+
   it('leave the dashboard alone while the settings are open', async () => {
     await mountAt('');
     fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
