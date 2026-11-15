@@ -3,9 +3,11 @@
 
 import Parser from 'rss-parser';
 import { GoogleDecoder } from 'google-news-url-decoder';
-import { CATEGORIES } from './feeds.js';
+import { CATEGORIES, DEFAULT_MAX_AGE_DAYS } from './feeds.js';
 
 export { CATEGORIES };
+
+const BOT_UA = 'news-dashboard/1.0 (+https://github.com/AntonyPerez0/news-dashboard)';
 
 const parser = new Parser({
   customFields: {
@@ -17,7 +19,7 @@ const parser = new Parser({
     ]
   },
   headers: {
-    'User-Agent': 'news-dashboard/1.0 (+https://github.com/AntonyPerez0/news-dashboard)'
+    'User-Agent': BOT_UA
   }
 });
 
@@ -29,7 +31,7 @@ async function parseFeed(url) {
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'news-dashboard/1.0 (+https://github.com/AntonyPerez0/news-dashboard)',
+        'User-Agent': BOT_UA,
         Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
       }
     });
@@ -173,7 +175,9 @@ export function isJunk(title) {
 }
 
 export function normalizeItem(item, feed) {
-  let title = (item.title || '').trim();
+  // Some feeds escape twice ("Hope &amp;amp; Fear"), leaving a literal
+  // "&amp;" after XML parsing.
+  let title = decodeEntities(item.title || '').trim();
   let source = feed.name;
 
   if (feed.aggregate) {
@@ -207,13 +211,27 @@ export function normalizeItem(item, feed) {
 // og:description (summary) for social sharing. Scrape both in one request.
 // ---------------------------------------------------------------------------
 
-const SCRAPE_UA =
+const BROWSER_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+// Identify honestly first: some publishers (ESPN, Phys.org) serve a declared
+// bot but challenge anything posing as a browser. Others answer only
+// browsers, so that is the second attempt.
+const SCRAPE_UAS = [BOT_UA, BROWSER_UA];
 
 // link -> { image, description, at }; fully-negative results expire so sites
 // that change their pages get picked up on a future refresh.
 const PAGE_CACHE = new Map();
+const PAGE_CACHE_MAX = 5000; // ~3x the stories live at once; the server runs for weeks
 const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000;
+
+/** Map.set that keeps the map at `max` entries by dropping the ones written
+ *  longest ago. */
+export function setBounded(map, key, value, max) {
+  map.delete(key); // re-inserting moves the key to the young end
+  map.set(key, value);
+  while (map.size > max) map.delete(map.keys().next().value);
+}
 
 // Google News links point at a JS-redirect gateway that hides meta tags from
 // server-side fetchers — resolve them back to the real publisher URL first.
@@ -293,6 +311,52 @@ export function tidySnippet(text) {
   return cleaned.length > 240 ? cleaned.slice(0, 237).trimEnd() + '…' : cleaned;
 }
 
+// Meta tags live in <head>, so the page is not downloaded whole. The first
+// 150 KB is always read (JSON-LD often sits early in <body>); past that,
+// reading continues only until </head>, because some heads carry 300 KB of
+// inline script before their og:image.
+const HEAD_MIN_BYTES = 150_000;
+const HEAD_MAX_BYTES = 600_000;
+
+/** Reads the start of an HTML response body as text: at least `min` bytes,
+ *  then on to the closing </head>, never past `max`. */
+export async function readHead(body, { min = HEAD_MIN_BYTES, max = HEAD_MAX_BYTES } = {}) {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let html = '';
+  let size = 0;
+  let headClosed = false;
+  while (size < max && !(size >= min && headClosed)) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    const from = Math.max(0, html.length - 8); // "</head>" may straddle two chunks
+    html += decoder.decode(value, { stream: true });
+    headClosed ||= /<\/head\s*>/i.test(html.slice(from));
+  }
+  await reader.cancel().catch(() => {});
+  return html;
+}
+
+async function fetchPageHead(url, userAgent) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': userAgent, Accept: 'text/html,application/xhtml+xml,*/*' }
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || !contentType.includes('html')) return null;
+    return { html: await readHead(res.body), url: res.url || url };
+  } catch {
+    return null; // timeout, 403, redirect loop
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function scrapePageMeta(link) {
   const cached = PAGE_CACHE.get(link);
   if (cached) {
@@ -310,40 +374,17 @@ async function scrapePageMeta(link) {
     } catch {
       site = null;
     }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7000);
-    try {
-      const res = await fetch(articleUrl, {
-        signal: controller.signal,
-        redirect: 'follow',
-        headers: { 'User-Agent': SCRAPE_UA, Accept: 'text/html,application/xhtml+xml,*/*' }
-      });
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('html')) {
-        // meta tags live in <head>; no need to download the whole page
-        const reader = res.body.getReader();
-        const chunks = [];
-        let size = 0;
-        while (size < 150_000) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-          size += value.length;
-        }
-        await reader.cancel().catch(() => {});
-        const head = Buffer.concat(chunks).toString('utf8');
-        image = extractMetaImage(head, res.url || articleUrl);
-        description = tidySnippet(extractMetaDescription(head));
-      }
-    } catch {
-      /* timeout, 403, redirect loop — leave nulls */
-    } finally {
-      clearTimeout(timer);
+    for (const userAgent of SCRAPE_UAS) {
+      const page = await fetchPageHead(articleUrl, userAgent);
+      if (!page) continue;
+      image ??= extractMetaImage(page.html, page.url);
+      description ??= tidySnippet(extractMetaDescription(page.html));
+      if (image && description) break;
     }
   }
 
   const out = { image, description, site, at: Date.now() };
-  PAGE_CACHE.set(link, out);
+  setBounded(PAGE_CACHE, link, out, PAGE_CACHE_MAX);
   return out;
 }
 
@@ -427,10 +468,32 @@ export function dedupeNearDuplicates(items) {
   return kept;
 }
 
+// ---------------------------------------------------------------------------
+// Age cut-off — feeds carry evergreen items and long tails ("Download now",
+// published 563 days ago), which do not belong on a live news board.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_STORIES = 24; // enough to fill the largest grid twice over
+
+/** Drops stories older than `maxAgeMs`. Undated stories are kept: their age
+ *  is unknown and they already sort last. A slow category is topped back up
+ *  to `minItems` with its newest older stories rather than left near-empty. */
+export function dropOldStories(items, { maxAgeMs, minItems = MIN_STORIES, now = Date.now() }) {
+  const isCurrent = (item) => !item.publishedAt || now - item.publishedAt <= maxAgeMs;
+  const current = items.filter(isCurrent);
+  if (current.length >= minItems) return current;
+  const older = items
+    .filter((item) => !isCurrent(item))
+    .sort((a, b) => b.publishedAt - a.publishedAt)
+    .slice(0, minItems - current.length);
+  return [...current, ...older].sort((a, b) => b.publishedAt - a.publishedAt);
+}
+
 /** Fetch every feed in a category, merge, dedupe and sort. Never throws for
  *  a single dead feed — throws only if all feeds fail. */
 export async function fetchCategoryFeeds(key) {
-  const { feeds } = CATEGORIES[key];
+  const { feeds, maxAgeDays = DEFAULT_MAX_AGE_DAYS } = CATEGORIES[key];
   const results = await Promise.allSettled(
     feeds.map((feed) =>
       parseFeed(feed.url).then(
@@ -467,7 +530,8 @@ export async function fetchCategoryFeeds(key) {
   if (ok === 0) throw new Error(`all feeds failed for category "${key}"`);
 
   const sorted = [...byTitle.values()].sort((a, b) => b.publishedAt - a.publishedAt);
-  return dedupeNearDuplicates(sorted).slice(0, 150);
+  const current = dropOldStories(sorted, { maxAgeMs: maxAgeDays * DAY_MS });
+  return dedupeNearDuplicates(current).slice(0, 150);
 }
 
 /** Feeds + blocking image enrichment. Used by the static build, which has

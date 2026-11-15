@@ -25,6 +25,12 @@ try {
   console.warn('sw.js stamping skipped (not built yet?)');
 }
 
+// The category list for static hosting, where there is no /api/categories.
+await fs.writeFile(
+  path.join(distData, 'categories.json'),
+  JSON.stringify(Object.entries(CATEGORIES).map(([key, cat]) => ({ key, label: cat.label })))
+);
+
 const started = Date.now();
 let ok = 0;
 

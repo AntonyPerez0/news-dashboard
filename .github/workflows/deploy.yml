@@ -37,6 +37,10 @@ jobs:
       - run: npm ci
       - run: npm run build        # typecheck + vite build → dist/
       - run: node scripts/generate-data.js
+        env:
+          # Optional repository variables; empty means the built-in defaults.
+          NEWS_EDITION: ${{ vars.NEWS_EDITION }}
+          NEWS_FEEDS_FILE: ${{ vars.NEWS_FEEDS_FILE }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

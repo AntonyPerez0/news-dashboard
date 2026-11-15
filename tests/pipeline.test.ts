@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   areNearDuplicates,
   dedupeNearDuplicates,
+  dropOldStories,
   extractMetaDescription,
   extractMetaImage,
   isJunk,
   normalizeItem,
+  readHead,
   sanitizeXml,
+  setBounded,
   stripAggregatorSuffix,
   tidySnippet
 } from '../server/news.js';
@@ -156,6 +159,15 @@ describe('normalizeItem', () => {
     );
     expect(item.snippet).toBeNull();
   });
+
+  it('decodes entities a feed escaped twice', () => {
+    // What the XML parser hands over for IGN's "Hope &amp;amp; Fear".
+    const item = normalizeItem(
+      { title: 'Daggerheart: Hope &amp; Fear Expansion Review', link: 'https://x/4' },
+      { name: 'IGN', aggregate: false }
+    );
+    expect(item.title).toBe('Daggerheart: Hope & Fear Expansion Review');
+  });
 });
 
 describe('extractMetaImage', () => {
@@ -189,5 +201,90 @@ describe('extractMetaDescription', () => {
 
   it('returns null when no description meta exists', () => {
     expect(extractMetaDescription('<p>nothing here</p>')).toBeNull();
+  });
+});
+
+describe('age cut-off', () => {
+  const now = Date.UTC(2026, 10, 14, 12);
+  const HOUR = 60 * 60 * 1000;
+  const DAY = 24 * HOUR;
+  const story = (title: string, ageMs: number | null) => ({
+    title,
+    publishedAt: ageMs === null ? 0 : now - ageMs
+  });
+  const titles = (items: { title: string }[]) => items.map((item) => item.title);
+
+  it('drops evergreen items and long tails', () => {
+    const items = [
+      story('fresh', HOUR),
+      story('yesterday', 30 * HOUR),
+      story('last week', 8 * DAY),
+      story('Download now', 563 * DAY)
+    ];
+    expect(titles(dropOldStories(items, { maxAgeMs: 3 * DAY, minItems: 2, now }))).toEqual(['fresh', 'yesterday']);
+  });
+
+  it('keeps undated stories, whose age is unknown', () => {
+    const items = [story('fresh', HOUR), story('old', 10 * DAY), story('undated', null)];
+    expect(titles(dropOldStories(items, { maxAgeMs: 3 * DAY, minItems: 1, now }))).toEqual(['fresh', 'undated']);
+  });
+
+  it('tops a slow category back up with its newest older stories', () => {
+    const items = [story('fresh', HOUR), story('5 days', 5 * DAY), story('9 days', 9 * DAY), story('40 days', 40 * DAY)];
+    expect(titles(dropOldStories(items, { maxAgeMs: 3 * DAY, minItems: 3, now }))).toEqual(['fresh', '5 days', '9 days']);
+  });
+});
+
+describe('reading a page head', () => {
+  // Delivered in 16 KB chunks, the way a network response arrives.
+  const page = (parts: string[]) => {
+    const bytes = new TextEncoder().encode(parts.join(''));
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let at = 0; at < bytes.length; at += 16_384) controller.enqueue(bytes.slice(at, at + 16_384));
+        controller.close();
+      }
+    });
+  };
+  const filler = (bytes: number) => 'x'.repeat(bytes);
+
+  it('stops at the minimum once the head has closed', async () => {
+    const html = await readHead(page(['<head><meta name="a"></head>', filler(90_000)]), { min: 1000, max: 100_000 });
+    expect(html.length).toBeLessThan(40_000);
+    expect(html).toContain('</head>');
+  });
+
+  it('reads past the minimum to reach a late og:image', async () => {
+    // Shaped like hollywoodreporter.com: ~300 KB of inline script before the tag.
+    const body = page([
+      '<head><script>', filler(310_000), '</script>',
+      '<meta property="og:image" content="https://cdn.example.com/photo.jpg"></head><body>', filler(400_000)
+    ]);
+    const html = await readHead(body);
+    expect(extractMetaImage(html, 'https://example.com/')).toBe('https://cdn.example.com/photo.jpg');
+    expect(html.length).toBeLessThan(600_000);
+  });
+
+  it('gives up at the maximum when the head never closes', async () => {
+    const html = await readHead(page([filler(50_000)]), { min: 100, max: 2000 });
+    expect(html.length).toBeLessThan(2000 + 16_384);
+    expect(html).not.toContain('</head>');
+  });
+});
+
+describe('bounded cache', () => {
+  it('drops the entries written longest ago', () => {
+    const map = new Map<string, number>();
+    for (const key of ['a', 'b', 'c', 'd']) setBounded(map, key, 1, 3);
+    expect([...map.keys()]).toEqual(['b', 'c', 'd']);
+  });
+
+  it('treats a rewrite as fresh', () => {
+    const map = new Map<string, number>();
+    for (const key of ['a', 'b', 'c']) setBounded(map, key, 1, 3);
+    setBounded(map, 'a', 2, 3);
+    setBounded(map, 'e', 1, 3);
+    expect([...map.keys()]).toEqual(['c', 'a', 'e']);
+    expect(map.get('a')).toBe(2);
   });
 });
