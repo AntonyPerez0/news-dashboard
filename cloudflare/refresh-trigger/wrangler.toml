@@ -1,0 +1,25 @@
+# Scheduled Worker that starts the site's deploy workflow. See src/index.js.
+# Deploy with ./setup.sh (it also stores the GitHub token as a secret).
+
+name = "newsdash-refresh-trigger"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Nothing to call from outside: the Worker only runs on its timer.
+workers_dev = false
+preview_urls = false
+
+[triggers]
+# Every 15 minutes (UTC), off the top of the hour, when GitHub's runners are
+# busiest. A deploy takes about two minutes.
+crons = ["7,22,37,52 * * * *"]
+
+[vars]
+GITHUB_REPO = "AntonyPerez0/news-dashboard"
+GITHUB_WORKFLOW = "deploy.yml"
+GITHUB_REF = "main"
+
+# Keeps a log of each run, so a failing trigger can be diagnosed from the
+# Cloudflare dashboard.
+[observability]
+enabled = true

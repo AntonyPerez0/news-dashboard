@@ -254,6 +254,48 @@ const PAGE_CACHE = new Map();
 const PAGE_CACHE_MAX = 5000; // ~3x the stories live at once; the server runs for weeks
 const NEGATIVE_TTL_MS = 6 * 60 * 60 * 1000;
 
+// How much scraping a run actually did, for the build log.
+export const scrapeStats = { cached: 0, fetched: 0 };
+
+/** What the scraper knows about `links`, as plain data. The static build
+ *  publishes this next to the news so the next run starts from it instead
+ *  of fetching every article page again. */
+export function exportPageCache(links) {
+  const out = {};
+  for (const link of links) {
+    const entry = PAGE_CACHE.get(link);
+    if (entry) out[link] = entry;
+  }
+  return out;
+}
+
+/** Loads entries written by exportPageCache. Anything not shaped like one
+ *  is skipped; returns how many were taken. */
+export function importPageCache(entries) {
+  if (!entries || typeof entries !== 'object' || Array.isArray(entries)) return 0;
+  const text = (value) => (typeof value === 'string' && value ? value : null);
+  let taken = 0;
+  for (const [link, entry] of Object.entries(entries)) {
+    if (taken >= PAGE_CACHE_MAX) break;
+    if (!/^https?:\/\//i.test(link) || !entry || typeof entry !== 'object') continue;
+    if (!Number.isFinite(entry.at) || entry.at > Date.now()) continue;
+    const image = text(entry.image);
+    setBounded(
+      PAGE_CACHE,
+      link,
+      {
+        image: image && /^https:\/\//i.test(image) ? image : null,
+        description: text(entry.description),
+        site: text(entry.site),
+        at: entry.at
+      },
+      PAGE_CACHE_MAX
+    );
+    taken++;
+  }
+  return taken;
+}
+
 /** Map.set that keeps the map at `max` entries by dropping the ones written
  *  longest ago. */
 export function setBounded(map, key, value, max) {
@@ -392,8 +434,12 @@ async function scrapePageMeta(link) {
   const cached = PAGE_CACHE.get(link);
   if (cached) {
     const fresh = cached.image || cached.description || Date.now() - cached.at < NEGATIVE_TTL_MS;
-    if (fresh) return cached;
+    if (fresh) {
+      scrapeStats.cached++;
+      return cached;
+    }
   }
+  scrapeStats.fetched++;
 
   const articleUrl = await resolveArticleUrl(link);
   let image = null;

@@ -69,13 +69,13 @@ npm test        # no network required
 ```
 
 CI runs typecheck + tests + production build on every push; the deploy
-workflow rebuilds and republishes the site with fresh data on a schedule
+workflow rebuilds and republishes the site with fresh data every 15 minutes
 (see [Live-site freshness](#live-site-freshness)).
 
 ## Architecture
 
 ```
-GitHub Action (scheduled)                   local: npm start
+GitHub Action (every 15 min)                local: npm start
        │ scripts/generate-data.js                  │ /api/news (10-min SWR cache)
        ▼                                           ▼
 dist/data/<category>.json  ─── both served to ───┐
@@ -112,16 +112,48 @@ src/                          server/
 
 ## Live-site freshness
 
-The deploy workflow is scheduled for every 15 minutes, but GitHub runs
-scheduled workflows on a best-effort basis. In practice the hosted site is
-refreshed a few times a day, 3 to 10 hours apart; when its data is older than
-45 minutes the header says so ("stale · updated 4h"). For continuously fresh
-headlines run the dashboard locally with `npm start`, which fetches the feeds
-itself.
+The hosted site is rebuilt every 15 minutes. A small Cloudflare Worker
+([`cloudflare/refresh-trigger`](cloudflare/refresh-trigger)) starts the
+deploy workflow on a timer; both the Worker and the workflow run on free
+plans. GitHub's own `schedule:` trigger is not used for this: it is
+best-effort (it ran this workflow every 3 to 10 hours), and GitHub disables
+scheduled workflows after 60 days without repository activity.
 
-GitHub also disables scheduled workflows after 60 days without repository
-activity. Any commit resets the clock; if the schedule has been switched off,
-turn it back on with `gh workflow enable deploy.yml` or from the Actions tab.
+Frequent runs stay cheap for publishers because the scraper's results are
+published with the site (`data/page-cache.json`) and the next run starts
+from them: a run fetches only the article pages of stories that are new,
+about a dozen instead of several hundred.
+
+When the data is older than 45 minutes the header says so ("stale · updated
+4h"). If that happens, the Worker's cron events in the Cloudflare dashboard
+show why; the usual cause is an expired or revoked GitHub token (GitHub
+answers 401), fixed by running the setup below again with a new token.
+
+### Setting up the trigger on a fork
+
+1. Create a fine-grained GitHub token with
+   [this pre-filled form](https://github.com/settings/personal-access-tokens/new?name=newsdash+refresh+trigger&description=Lets+a+Cloudflare+Worker+start+the+news-dashboard+deploy+workflow&expires_in=none&actions=write):
+   under **Repository access** choose **Only select repositories** and pick
+   your fork. It needs **Actions: read and write** and nothing else.
+2. Create a Cloudflare API token with
+   [this pre-filled form](https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=%2A&zoneId=all&name=newsdash%20refresh%20trigger%20setup).
+   It is only used to deploy and can be deleted afterwards.
+3. Set `GITHUB_REPO` in
+   [`wrangler.toml`](cloudflare/refresh-trigger/wrangler.toml) to your fork
+   and run:
+
+   ```bash
+   CLOUDFLARE_API_TOKEN=… GITHUB_DISPATCH_TOKEN=… ./cloudflare/refresh-trigger/setup.sh
+   ```
+
+   The script checks both tokens, starts one deploy to prove the GitHub
+   token works, deploys the Worker and stores the GitHub token on it as a
+   secret.
+
+Without the Worker the site still deploys on every push and from the
+**Run workflow** button; add a `schedule:` trigger to
+[`deploy.yml`](.github/workflows/deploy.yml) if a few refreshes a day are
+enough.
 
 ## Run it
 

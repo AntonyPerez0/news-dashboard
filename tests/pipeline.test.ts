@@ -3,8 +3,10 @@ import {
   areNearDuplicates,
   dedupeNearDuplicates,
   dropOldStories,
+  exportPageCache,
   extractMetaDescription,
   extractMetaImage,
+  importPageCache,
   isJunk,
   isOfficial,
   normalizeItem,
@@ -376,5 +378,51 @@ describe('single-subject feeds', () => {
     expect(dedupeNearDuplicates([wowhead, blizzard], (i) => i === blizzard).map((i) => i.source)).toEqual([
       'Blizzard News'
     ]);
+  });
+});
+
+describe('page cache carried between builds', () => {
+  const now = Date.now();
+  const found = { image: 'https://cdn.example.com/a.jpg', description: 'An excerpt.', site: 'example.com', at: now - 1000 };
+  const nothing = { image: null, description: null, site: 'blocked.example', at: now - 2000 };
+
+  it('round-trips what the scraper knew, including pages that had nothing', () => {
+    expect(importPageCache({ 'https://example.com/a': found, 'https://blocked.example/b': nothing })).toBe(2);
+    expect(exportPageCache(['https://example.com/a', 'https://blocked.example/b'])).toEqual({
+      'https://example.com/a': found,
+      'https://blocked.example/b': nothing
+    });
+  });
+
+  it('exports only the stories asked for, so old ones drop out', () => {
+    importPageCache({ 'https://example.com/old': found, 'https://example.com/new': found });
+    expect(Object.keys(exportPageCache(['https://example.com/new', 'https://example.com/unknown']))).toEqual([
+      'https://example.com/new'
+    ]);
+  });
+
+  it('skips entries that are not what it wrote', () => {
+    expect(importPageCache(null)).toBe(0);
+    expect(importPageCache([found])).toBe(0);
+    expect(
+      importPageCache({
+        'not a url': found,
+        'https://example.com/no-time': { image: null, description: null },
+        'https://example.com/future': { ...found, at: now + 86_400_000 },
+        'https://example.com/string': 'nope'
+      })
+    ).toBe(0);
+  });
+
+  it('keeps only https photos and text fields', () => {
+    importPageCache({
+      'https://example.com/odd': { image: 'http://insecure.example/a.jpg', description: 42, site: ['x'], at: now }
+    });
+    expect(exportPageCache(['https://example.com/odd'])['https://example.com/odd']).toEqual({
+      image: null,
+      description: null,
+      site: null,
+      at: now
+    });
   });
 });

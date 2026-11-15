@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.5.0] — 2026-11-15
+
+### Added
+
+- **Refresh trigger** — a Cloudflare Worker (`cloudflare/refresh-trigger`)
+  starts the deploy workflow every 15 minutes, with a setup script that
+  checks both tokens before deploying. The hosted site goes from a few
+  refreshes a day to data at most about half an hour old
+- **Page cache carried between builds** — the scraper's results are
+  published as `data/page-cache.json` and seed the next run, which then
+  fetches only new stories' pages: 13 instead of 688 in a back-to-back test,
+  and the data step drops from 72 s to 7 s
+
 ## [2.4.0] — 2026-11-14
 
 ### Added
